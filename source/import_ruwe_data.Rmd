@@ -1,0 +1,158 @@
+---
+title: "Analyseset"
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 180 / 25.4,
+  fig.height = 120 / 25.4,
+  fig.align = "center"
+)
+
+```
+
+```{r, cache = FALSE}
+
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+library(n2khab)
+library(git2rdata)
+library(DBI)
+library(inbodb)
+library(lubridate)
+
+```
+
+# Importeer ruwe data uit meetnetten.be - databank
+
+```{r}
+
+con <- connect_inbo_dbase("S0008_00_Meetnetten")
+
+```
+
+## Bezoeken
+
+```{r}
+
+query_visits <- "SELECT 
+  PG.name as soortgroep, 
+  P.Name as meetnet,
+  PR.name as protocol, 
+  L.name as locatie,
+  V.id as visit_id,
+  v.validation_status as validatie,
+  V.start_date as datum, 
+  V.start_time, 
+  V.end_date,
+  V.end_time, 
+  case when V.status = 1 then 'Conform protocol'
+       when V.status = -1 then 'Weersomstandigheden ongunstig'
+       when V.status = -2 then 'Telmethode niet gevolgd'
+       when V.status = -3 then 'Geen veldwerk mogelijk - locatie ontoegankelijk'
+       when V.status = -4 then 'Geen veldwerk mogelijk - locatie ongeschikt'
+       else Null
+  end as bezoek_status, 
+  V.analysis as voor_analyse,
+  V.notes as opmerking
+  from staging_Meetnetten.Projects_project P
+    inner join staging_Meetnetten.projects_projectgroup PG on PG.id = P.group_id
+    inner join staging_Meetnetten.fieldwork_visit V on V.project_id = P.id
+    inner Join staging_Meetnetten.Locations_location L on L.ID = V.location_ID
+    inner join staging_Meetnetten.Protocols_protocol PR on PR.id = V.protocol_ID
+  Where 1=1
+    and PG.name = 'planten'
+    and v.validation_status <> -1
+  Order by PG.name
+    , P.name
+    , L.Name
+    , V.start_date
+"
+
+bezoeken <- dbGetQuery(con, query_visits)
+
+```
+
+## Aantallen
+
+```{r}
+
+query_aantallen_planten <- "select 
+      PG.name as soortgroep
+    , P.name as meetnet
+    , L.name as locatie
+    , PR.name as protocol
+    , V.id as visit_id
+    , V.start_date as datum
+    , v.validation_status as validatie
+    , SP.name as soort_nl
+    , SP.scientific_name as soort_wet
+    , O.id
+    , O.sample_id
+    , S.name as schaal
+    , SC.code
+    , O.number_min as aantal_min
+    , O.number_max as aantal_max
+    , SC.description as beschrijving_floroncode
+    , o.geom.STAsText() as geom
+    , o.geom.STX as x
+    , o.geom.STY as y
+    , SA.Notes as opm
+ from staging_Meetnetten.Projects_project P
+    inner join staging_Meetnetten.projects_projectgroup PG on PG.id = P.group_id
+    inner join staging_Meetnetten.fieldwork_visit V on V.project_ID = P.ID
+    inner join staging_Meetnetten.protocols_protocol PR on PR.id = V.protocol_id
+    inner join staging_Meetnetten.fieldwork_sample SA on SA.visit_ID = V.ID
+    inner join staging_Meetnetten.fieldwork_observation O on O.sample_ID = SA.ID
+    inner join staging_Meetnetten.Species_species SP on SP.ID = O.species_id
+    inner join staging_Meetnetten.protocols_scalecode SC on SC.id = O.scale_code_id
+    inner join staging_Meetnetten.protocols_scale S on S.id = O.scale_id
+    inner join staging_Meetnetten.Locations_location L ON L.ID = V.location_ID
+    inner Join staging_Meetnetten.Locations_location L1 on L1.ID = SA.location_id
+    inner join staging_Meetnetten.projects_projectspecies PS on PS.species_ID = O.species_ID and PS.project_ID = P.ID
+where 1=1
+    and PG.name = 'planten'
+    and v.validation_status <> -1
+Order by PG.name
+    , P.name
+    , L.Name
+    , V.start_date
+    , L1.Name"
+
+aantallen_planten <- dbGetQuery(con, query_aantallen_planten)
+
+aantallen_planten_sf <- aantallen_planten %>%
+  filter(!is.na(x)) %>%
+  st_as_sf(wkt = "geom")
+
+```
+
+## Locaties
+
+```{r}
+
+
+```
+
+## Tracks
+
+```{r}
+
+```
+
