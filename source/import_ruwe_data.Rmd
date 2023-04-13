@@ -1,5 +1,5 @@
 ---
-title: "Analyseset"
+title: "Import ruwe data"
 output:
   bookdown::html_document2:
     keep_md: TRUE
@@ -13,17 +13,6 @@ output:
 library(knitr)
 options(knitr.kable.NA = '')
 
-opts_chunk$set(
-  echo = FALSE, 
-  eval = TRUE,
-  cache = FALSE,
-  warning = FALSE,
-  message = FALSE,
-  fig.width = 180 / 25.4,
-  fig.height = 120 / 25.4,
-  fig.align = "center"
-)
-
 ```
 
 ```{r, cache = FALSE}
@@ -31,12 +20,12 @@ opts_chunk$set(
 library(tidyverse)
 library(INBOtheme)
 library(sf)
-library(n2khab)
-library(git2rdata)
 library(DBI)
 library(inbodb)
 library(lubridate)
+library(conflicted)
 
+conflicts_prefer(dplyr::filter())
 ```
 
 # Importeer ruwe data uit meetnetten.be - databank
@@ -100,7 +89,6 @@ query_aantallen_planten <- "select
     , PR.name as protocol
     , V.id as visit_id
     , V.start_date as datum
-    , v.validation_status as validatie
     , SP.name as soort_nl
     , SP.scientific_name as soort_wet
     , O.id
@@ -147,12 +135,72 @@ aantallen_planten_sf <- aantallen_planten %>%
 
 ```{r}
 
+query_selectLocations <- "SELECT
+    PG.name as soortgroep,
+    P.name as meetnet,
+    L.name as locatie,
+    PL.is_active,
+    L.geom.STAsText() as geom_text
+    FROM staging_Meetnetten.locations_location L
+    INNER JOIN staging_Meetnetten.projects_projectlocation PL ON PL.location_id = L.id
+    INNER JOIN staging_Meetnetten.projects_project P ON P.id = PL.project_id
+    INNER JOIN staging_Meetnetten.projects_projectgroup PG on PG.id = P.group_id
+and PG.name = 'planten'"
 
+locaties <- dbGetQuery(conn = con, statement = query_selectLocations) %>%
+  st_as_sf(wkt = "geom_text")
 ```
 
 ## Tracks
 
 ```{r}
+query_tracks <- "select PG.name as soortgroep
+    , P.name as meetnet
+    , L.name as locatie
+    , V.id as visit_id
+    , V.start_date as datum
+     ,v.track_geom.STAsText() as track_geom_text
+ from staging_Meetnetten.Projects_project P
+    inner join staging_Meetnetten.projects_projectgroup PG on PG.id = P.group_id
+    inner join staging_Meetnetten.fieldwork_visit V on V.project_ID = P.ID
+    inner join staging_Meetnetten.Locations_location L ON L.ID = V.location_ID
+where 1=1
+    and PG.name = 'planten'
+    and v.validation_status <> -1
+Order by PG.name
+    , P.name
+    , L.Name
+    , V.start_date"
+
+tracks <- dbGetQuery(con, query_tracks) %>%
+  filter(!is.na(track_geom_text)) %>%
+  st_as_sf(wkt = "track_geom_text", crs = 4326) %>%
+  arrange(meetnet, datum)
+
+```
+
+# Sla data lokaal op
+
+```{r}
+
+if (!dir.exists("../data")) {
+  
+dir.create("../data")
+  
+}
+
+if (!dir.exists("../data/ruwe_data")) {
+  
+dir.create("../data/ruwe_data")
+  
+}
+
+write_csv2(aantallen_planten, "../data/ruwe_data/aantallen_planten.csv")
+write_csv2(bezoeken, "../data/ruwe_data/bezoeken_planten.csv")
+
+st_write(aantallen_planten_sf, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "aantallen", delete_layer = TRUE)
+st_write(locaties, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "locaties", delete_layer = TRUE)
+st_write(tracks, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "tracks", delete_layer = TRUE)
 
 ```
 
