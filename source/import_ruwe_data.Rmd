@@ -127,7 +127,7 @@ aantallen_planten <- dbGetQuery(con, query_aantallen_planten)
 
 aantallen_planten_sf <- aantallen_planten %>%
   filter(!is.na(x)) %>%
-  st_as_sf(wkt = "geom")
+  st_as_sf(wkt = "geom", crs = 4326)
 
 ```
 
@@ -148,7 +148,7 @@ query_selectLocations <- "SELECT
 and PG.name = 'planten'"
 
 locaties <- dbGetQuery(conn = con, statement = query_selectLocations) %>%
-  st_as_sf(wkt = "geom_text")
+  st_as_sf(wkt = "geom_text", crs = 4326)
 ```
 
 ## Tracks
