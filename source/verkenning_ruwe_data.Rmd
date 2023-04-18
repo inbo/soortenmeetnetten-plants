@@ -35,6 +35,7 @@ library(kableExtra)
 library(DT)
 library(leaflet)
 library(lubridate)
+library(units)
 
 conflicts_prefer(dplyr::filter())
 ```
@@ -259,7 +260,57 @@ for (m in unique(dubbele_puntlocaties$meetnet)) {
   }
 }
 
+```
 
+## Verwijder dubbele tellingen
 
+```{r}
+
+dubbele_puntlocaties <- dubbele_puntlocaties %>%
+  st_transform(crs = 31370)
+
+dubbels_by_meetnet <- dubbele_puntlocaties %>%
+  group_by(visit_id) %>%
+  nest()
+
+observations <- dubbele_puntlocaties 
+
+visit_id_select <- "30985"
+
+dist_nearest_point <- function(visit_id_select, observations) {
+  
+  observations_visit_id <- observations %>%
+    filter(visit_id == visit_id_select)
+  
+  observations_double <- observations %>%
+    filter(jaar == observations_visit_id$jaar,
+           meetnet == observations_visit_id$meetnet,
+           locatie == observations_visit_id$locatie,
+           visit_id != observations_visit_id$visit_id) %>%
+    select(code_nearest_feature = code,
+           id_nearest_feature = id)
+  
+  observations_result <- observations_visit_id %>%
+    st_join(observations_double, join = st_nearest_feature) %>%
+    group_by(id) %>%
+    mutate(dist_meter = min(drop_units(st_distance(geom, observations_double))),
+           dist_meter = round(dist_meter, 1)) %>%
+    ungroup() %>%
+    st_drop_geometry() %>%
+    select(meetnet, locatie, id, x, y, code, code_nearest_feature, dist_meter)
+  
+  return(observations_result)
+            
+}
+
+dubbels_by_meetnet <- dubbels_by_meetnet %>%
+  mutate(dist_nearest = map2(visit_id, data, dist_nearest_point))
+
+data_extern_locaties <- data_extern_by_meetnet %>%
+  select(data_locations_actief) %>%
+  unnest(data_locations_actief) %>%
+  mutate(locatie = ifelse(dist > 500, NA, locatie),
+         dist = ifelse(dist > 500, NA, dist),
+         datum = as.Date(datum, format = "%Y-%m-%d"))
 ```
 
