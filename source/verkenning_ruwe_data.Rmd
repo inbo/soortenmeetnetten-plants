@@ -1,0 +1,266 @@
+---
+title: "Verkenning ruwe data"
+output:
+  bookdown::html_document2:
+    keep_md: TRUE
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 180 / 25.4,
+  fig.height = 120 / 25.4,
+  fig.align = "center"
+)
+
+```
+
+```{r, cache = FALSE}
+
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+library(conflicted)
+library(kableExtra)
+library(DT)
+library(leaflet)
+library(lubridate)
+
+conflicts_prefer(dplyr::filter())
+```
+
+# Lokaal opgeslagen data inlezen
+
+```{r}
+
+bezoeken <- read_csv2("../data/ruwe_data/bezoeken_planten.csv")
+
+```
+```{r}
+
+aantallen <- read_csv2("../data/ruwe_data/aantallen_planten.csv") %>%
+  mutate(code = factor(code))
+
+```
+```{r}
+
+aantallen_puntlocaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "aantallen") %>%
+  mutate(code = factor(code))
+locaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "locaties")
+tracks <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "tracks")
+
+```
+
+# Controle van bezoeken
+
+
+```{r}
+
+locaties_status <- locaties %>%
+  st_drop_geometry() %>%
+  select(meetnet, locatie, is_active)
+
+bezoeken_status <- bezoeken %>%
+  select(visit_id, bezoek_status, voor_analyse)
+
+check_bezoeken <- aantallen %>%
+  group_by(meetnet, locatie, datum, visit_id) %>%
+  summarise(n_records = n(),
+            n_puntlocaties = sum(sample_id %in% aantallen_puntlocaties$sample_id),
+            code = str_c(code, collapse = "-")) %>%
+  ungroup() %>%
+  mutate(puntlocatie = n_puntlocaties > 0) %>%
+  left_join(locaties_status, by = c("meetnet", "locatie")) %>%
+  left_join(bezoeken_status, by = "visit_id") 
+
+
+```
+
+## Status van de bezoeken
+
+Per bezoek hebben we volgende info:
+
++ bezoek_status: de teller geeft zelf aan of het bezoek conform protocol is gebeurd
++ voor_analyse: meetnetcoördinator beoordeelt of een telling geschikt is voor analyse
++ is_active: wanneer de soort niet meer aanwezig is op een locatie wordt is_active = FALSE 
+
+
+```{r}
+
+overzicht_bezoeken <- check_bezoeken %>%
+  group_by(bezoek_status, voor_analyse, is_active) %>%
+  summarise(n_bezoeken = n_distinct(visit_id),
+            n_locaties = n_distinct(locatie)) %>%
+  ungroup()
+```
+
+Onderstaande tabel geeft een overzicht van het aantal bezoeken per combinatie van bezoek_status, voor_analyse en is_active.
+
+```{r}
+overzicht_bezoeken %>%
+  kable() %>%
+  kable_styling() %>%
+  collapse_rows(c(1, 2), target = 1)
+```
+Voor de analyse selecteren we enkel bezoeken met:
+
++ voor_analyse = TRUE
++ is_active = TRUE
+
+
+```{r}
+selectie_bezoeken <- check_bezoeken %>%
+  filter(is_active) %>%
+  filter(voor_analyse)
+```
+
+
+
+## Puntlocatie voor elk bezoek?
+
+Aan elk bezoek moet er minstens één observatie met bijhorende puntlocatie (xy-coördinaat) gekoppeld zijn. 
+Onderstaande tabel geeft het aantal bezoeken met en zonder puntlocaties.
+
+```{r}
+overzicht_puntlocaties <- selectie_bezoeken %>%
+  group_by(puntlocatie) %>%
+  summarise(n_bezoeken = n_distinct(visit_id)) %>%
+  ungroup()
+
+overzicht_puntlocaties %>%
+  kable() %>%
+  kable_styling(full_width = FALSE) 
+```
+
+Hieronder een overzicht van de bezoeken zonder puntwaarnemingen.
+Vaak gaat het om nulwaarnemingen.
+
+Voor_analyse op FALSE zetten?
+Nulwaarnemingen wel behouden?
+
+
+```{r}
+bezoeken_zonderpuntlocaties <- selectie_bezoeken %>%
+  filter(!puntlocatie)
+
+bezoeken_zonderpuntlocaties %>%
+  select(-is_active, -bezoek_status, -voor_analyse) %>%
+  arrange(datum) %>%
+  datatable(filter = 'top',
+            rownames = FALSE)
+```
+## Verschillende bezoeken per jaar aan eenzelfde meetnetlocatie
+
+In sommige gevallen worden meetnetlocaties meerdere keren bezocht in eenzelfde jaar.
+Het kan dan gaan om:
+
++ bezoeken aan verschillende delen van de meetnetlocatie (het zoekgebied per bezoek overlapt niet)
++ bezoeken aan dezelfde delen van de meetnetlocatie (het zoekgebied per bezoek overlapt wel)
+
+Bij de verdere analyse is het belangrijk om beide situaties te onderscheiden. 
+
+```{r}
+dubbele_puntlocaties <- aantallen_puntlocaties %>%
+  mutate(jaar = year(datum)) %>%
+  group_by(meetnet, locatie, jaar) %>%
+  filter(n_distinct(visit_id) > 1) %>%
+  ungroup()
+
+```
+```{r}
+overzicht_dubbele_bezoeken <- dubbele_puntlocaties %>%
+  st_drop_geometry() %>%
+  group_by(meetnet, locatie,jaar, datum, visit_id) %>%
+  summarise(n_punten = n()) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie, jaar) %>%
+  summarise(n_bezoeken = n_distinct(visit_id),
+            n_punten_per_bezoek = str_c(n_punten, collapse = "; ")) %>%
+  ungroup()
+```
+Onderstaande tabel geeft een overzicht van de locaties/jaren met meer dan één bezoek.
+We maken ook een kaartje per locatie op basis waarvan we beide situaties kunnen onderscheiden (zie folder `output/dubbele_bezoeken`).
+
+```{r}
+overzicht_dubbele_bezoeken %>%
+  datatable(rownames = FALSE,
+            filter = 'top')
+```
+
+
+
+```{r, eval = FALSE}
+locatie_select <- "Westhoek Bij de Den en omgeving (c0-56-34 32 31)"
+meetnet_select <- "Duingentiaan"
+
+meetnetlocatie <- locaties %>%
+  filter(locatie == locatie_select)
+
+dubbele_puntlocaties_select <- dubbele_puntlocaties %>%
+  mutate(visit_id = str_c("visit_id = ", visit_id)) %>%
+  filter(.data$locatie == locatie_select,
+         .data$meetnet == meetnet_select) 
+
+p <- ggplot(data = meetnetlocatie, aes(geometry = geom)) +
+  geom_sf() +
+  geom_sf(data = dubbele_puntlocaties_select, aes(geometry = geom, colour = code, ), size = 2, alpha = 0.5) +
+  facet_wrap(~jaar+locatie + visit_id) +
+  labs(title = str_c(meetnet_select, " - ", locatie_select))
+
+ggsave(p, filename = str_c("../output/",meetnet_select, "_", locatie_select, ".png"))
+```
+
+```{r}
+
+if (!dir.exists("../output")) {
+  
+  dir.create("../output")
+  
+}
+
+if (!dir.exists("../output/dubbele_bezoeken")) {
+  
+  dir.create("../output/dubbele_bezoeken")
+  
+}
+
+for (m in unique(dubbele_puntlocaties$meetnet)) {
+  
+  dubbele_puntlocaties_meetnet <- dubbele_puntlocaties %>%
+    filter(meetnet == m)
+  
+  for (l in unique(dubbele_puntlocaties_meetnet$locatie)) {
+   
+    meetnetlocatie <- locaties %>%
+        filter(locatie == l,
+               meetnet == m)
+
+    dubbele_puntlocaties_select <- dubbele_puntlocaties_meetnet %>%
+        filter(locatie == l)
+
+    p <- ggplot(data = meetnetlocatie, aes(geometry = geom)) +
+      geom_sf() +
+      geom_sf(data = dubbele_puntlocaties_select, aes(geometry = geom, colour = code), alpha = 0.5, size = 2) +
+      facet_wrap(~jaar + visit_id) +
+      labs(title = str_c(m, " ", l))
+    
+    ggsave(p, filename = str_c("../output/dubbele_bezoeken/",m, "_", l, ".png"))
+ 
+  }
+}
+
+
+
+```
+
