@@ -2,7 +2,6 @@
 title: "Verkenning ruwe data"
 output:
   bookdown::html_document2:
-    keep_md: TRUE
     toc: TRUE
     toc_float:
       collapsed: FALSE
