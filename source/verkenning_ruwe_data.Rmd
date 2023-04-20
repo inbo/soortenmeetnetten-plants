@@ -145,8 +145,8 @@ overzicht_puntlocaties %>%
 Hieronder een overzicht van de bezoeken zonder puntwaarnemingen.
 Vaak gaat het om nulwaarnemingen.
 
-Voor_analyse op FALSE zetten?
-Nulwaarnemingen wel behouden?
+Voor_analyse op FALSE zetten? ja als geen nulwaarneming
+Nulwaarnemingen wel behouden? Ja
 
 
 ```{r}
@@ -189,7 +189,7 @@ overzicht_dubbele_bezoeken <- dubbele_puntlocaties %>%
   ungroup()
 ```
 Onderstaande tabel geeft een overzicht van de locaties/jaren met meer dan één bezoek.
-We maken ook een kaartje per locatie op basis waarvan we beide situaties kunnen onderscheiden (zie folder `output/dubbele_bezoeken`).
+We maken ook een kaartje per locatie op basis waarvan we beide situaties kunnen onderscheiden (zie folder `output/dubbele_bezoeken`). Link toevoegen naar bezoek.
 
 ```{r}
 overzicht_dubbele_bezoeken %>%
