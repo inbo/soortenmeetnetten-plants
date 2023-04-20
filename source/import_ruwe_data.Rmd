@@ -58,6 +58,7 @@ query_visits <- "SELECT
        else Null
   end as bezoek_status, 
   V.analysis as voor_analyse,
+  V.user_id,
   V.notes as opmerking
   from staging_Meetnetten.Projects_project P
     inner join staging_Meetnetten.projects_projectgroup PG on PG.id = P.group_id
