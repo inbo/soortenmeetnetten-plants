@@ -46,12 +46,14 @@ conflicts_prefer(dplyr::filter())
 bezoeken <- read_csv2("../data/ruwe_data/bezoeken_planten.csv")
 
 ```
+
 ```{r}
 
 aantallen <- read_csv2("../data/ruwe_data/aantallen_planten.csv") %>%
   mutate(code = factor(code))
 
 ```
+
 ```{r}
 
 aantallen_puntlocaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "aantallen") %>%
@@ -62,7 +64,6 @@ tracks <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "tracks")
 ```
 
 # Controle van bezoeken
-
 
 ```{r}
 
@@ -94,7 +95,6 @@ Per bezoek hebben we volgende info:
 + voor_analyse: meetnetcoördinator beoordeelt of een telling geschikt is voor analyse
 + is_active: wanneer de soort niet meer aanwezig is op een locatie wordt is_active = FALSE 
 
-
 ```{r}
 
 overzicht_bezoeken <- check_bezoeken %>%
@@ -124,8 +124,6 @@ selectie_bezoeken <- check_bezoeken %>%
   filter(voor_analyse)
 ```
 
-
-
 ## Puntlocatie voor elk bezoek?
 
 Aan elk bezoek moet er minstens één observatie met bijhorende puntlocatie (xy-coördinaat) gekoppeld zijn. 
@@ -151,14 +149,18 @@ Nulwaarnemingen wel behouden? Ja
 
 ```{r}
 bezoeken_zonderpuntlocaties <- selectie_bezoeken %>%
-  filter(!puntlocatie)
+  filter(!puntlocatie) %>%
+  mutate(visit_id = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>'))
 
 bezoeken_zonderpuntlocaties %>%
   select(-is_active, -bezoek_status, -voor_analyse) %>%
   arrange(datum) %>%
   datatable(filter = 'top',
-            rownames = FALSE)
+            rownames = FALSE,
+            escape = FALSE) 
 ```
+
+
 ## Verschillende bezoeken per jaar aan eenzelfde meetnetlocatie
 
 In sommige gevallen worden meetnetlocaties meerdere keren bezocht in eenzelfde jaar.
@@ -220,7 +222,7 @@ p <- ggplot(data = meetnetlocatie, aes(geometry = geom)) +
 ggsave(p, filename = str_c("../output/",meetnet_select, "_", locatie_select, ".png"))
 ```
 
-```{r}
+```{r, eval=FALSE}
 
 if (!dir.exists("../output")) {
   
