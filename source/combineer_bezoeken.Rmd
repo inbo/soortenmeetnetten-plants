@@ -1,0 +1,152 @@
+---
+title: "Combineer bezoeken voor zelfde meetnetlocatie binnen zelfde jaar"
+output:
+  bookdown::html_document2:
+    toc: TRUE
+    toc_float:
+      collapsed: FALSE
+      smooth_scroll: FALSE
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+options(knitr.kable.NA = '')
+
+opts_chunk$set(
+  echo = FALSE, 
+  eval = TRUE,
+  cache = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 180 / 25.4,
+  fig.height = 120 / 25.4,
+  fig.align = "center"
+)
+
+```
+
+```{r, cache = FALSE}
+
+library(tidyverse)
+library(INBOtheme)
+library(sf)
+library(conflicted)
+library(kableExtra)
+library(DT)
+library(leaflet)
+library(lubridate)
+library(units)
+library(terra)
+
+conflicts_prefer(dplyr::filter())
+```
+
+# Lees analyseset
+
+```{r}
+analyseset <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analyseset")
+
+locaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", layer = "locaties")
+```
+
+
+
+# Combineer bezoeken
+
+```{r}
+
+dubbele_bezoeken <- analyseset %>%
+  mutate(jaar = year(datum)) %>%
+  group_by(meetnet, locatie, jaar) %>%
+  filter(n_distinct(visit_id) > 1) %>%
+  ungroup() %>%
+  st_transform(crs = 31370)
+
+dubbels_by_visit_id <- dubbele_bezoeken %>%
+  group_by(visit_id) %>%
+  nest()
+
+visit_id_select <- "30985"
+observations_all <- dubbele_bezoeken
+
+dist_nearest_point <- function(visit_id_select, observations_all) {
+  
+  observations_visit_id <- observations_all %>%
+    filter(visit_id == visit_id_select)
+  
+  observations_other <- observations_all %>%
+    filter(jaar == observations_visit_id$jaar,
+           meetnet == observations_visit_id$meetnet,
+           locatie == observations_visit_id$locatie,
+           visit_id != observations_visit_id$visit_id) %>%
+    select(code_nf = code,
+           id_nf = id,
+           visit_id_nf = visit_id,
+           user_id_nf = user_id,
+           datum_nf = datum)
+  
+  observations_result <- observations_visit_id %>%
+    st_join(observations_other, join = st_nearest_feature) %>%
+    group_by(id) %>%
+    mutate(dist_meter = min(drop_units(st_distance(geom, observations_other))),
+           dist_meter = round(dist_meter, 1)) %>%
+    ungroup() 
+  
+  return(observations_result)
+            
+}
+
+dubbele_bezoeken_distance <- NULL
+
+for (v in unique(dubbele_bezoeken$visit_id)) {
+  
+  visit_id_distance <- dist_nearest_point(v, dubbele_bezoeken) 
+  
+  dubbele_bezoeken_distance <- dubbele_bezoeken_distance %>%
+    bind_rows(visit_id_distance)
+  
+}
+
+dubbele_bezoeken_distance <- dubbele_bezoeken_distance %>%
+  mutate(verschil_dagen = abs(datum - datum_nf),
+         zelde_waarnemer = user_id == user_id_nf)
+
+bezoeken_identiek <- dubbele_bezoeken_distance %>%
+  filter(dist_meter == 0,
+         code == code_nf,
+         datum == datum_nf) %>%
+  st_drop_geometry() %>%
+  distinct(meetnet, locatie, visit_id, visit_id_nf)
+```
+
+## Via raster
+
+```{r}
+
+buffer = 1000
+resolutie = 10
+
+bbox_locaties <- locaties %>%
+  filter(is_active) %>%
+  filter(locatie %in% dubbele_bezoeken$locatie) %>%
+  st_transform(31370) %>%
+  group_by(locatie) %>%
+  mutate(xmin = st_bbox(geom)[1] - buffer,
+         ymin = st_bbox(geom)[2] - buffer,
+         xmax = st_bbox(geom)[3] + buffer,
+         ymax = st_bbox(geom)[4] + buffer) %>%
+  ungroup() %>%
+  st_drop_geometry() %>%
+  select(meetnet, locatie, xmin, ymin, xmax, ymax)
+
+dubbele_bezoeken_grid <- dubbele_bezoeken %>%
+  st_drop_geometry() %>%
+  mutate(x = st_coordinates(dubbele_bezoeken)[,1],
+         y = st_coordinates(dubbele_bezoeken)[,2]) %>%
+  left_join(bbox_locaties, by = c("meetnet", "locatie")) %>%
+  mutate(row = floor((x - xmin) / resolutie),
+         col = floor((y - ymin) / resolutie))
+
+
+```
+
