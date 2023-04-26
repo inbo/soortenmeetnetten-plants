@@ -122,6 +122,11 @@ Voor de analyse selecteren we enkel bezoeken met:
 selectie_bezoeken <- check_bezoeken %>%
   filter(is_active) %>%
   filter(voor_analyse)
+
+aantallen_puntlocaties_selectie <- aantallen_puntlocaties %>%
+  semi_join(selectie_bezoeken, by = "visit_id")
+
+
 ```
 
 ## Puntlocatie voor elk bezoek?
@@ -143,22 +148,41 @@ overzicht_puntlocaties %>%
 Hieronder een overzicht van de bezoeken zonder puntwaarnemingen.
 Vaak gaat het om nulwaarnemingen.
 
-Voor_analyse op FALSE zetten? ja als geen nulwaarneming
-Nulwaarnemingen wel behouden? Ja
-
-
 ```{r}
 bezoeken_zonderpuntlocaties <- selectie_bezoeken %>%
   filter(!puntlocatie) %>%
-  mutate(visit_id = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>'))
+  mutate(link = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>'))
 
 bezoeken_zonderpuntlocaties %>%
-  select(-is_active, -bezoek_status, -voor_analyse) %>%
+  select(-is_active, -bezoek_status, -voor_analyse, -visit_id) %>%
   arrange(datum) %>%
   datatable(filter = 'top',
             rownames = FALSE,
             escape = FALSE) 
 ```
+
+De bezoeken waarbij de aantallen of de oppervlakte groter is dan nul, worden niet meegenomen in de analyse/ (voor_analyse = FALSE).
+De nulwaarnemingen nemen we wel mee (daar is het minder relevant waar de nulwaarneming exact gebeurde). Voor deze nulwaarnemingen selecteren we een punt binnen de polygoon van de locatie via de functie `st_point_on_surface`
+
+```{r}
+nulwaarnemingen_zonderpuntlocaties <- aantallen %>%
+  semi_join(bezoeken_zonderpuntlocaties, by = "visit_id") %>%
+  filter(code == "0") %>%
+  select(-x, -y, -geom)
+
+locaties_punten <- locaties %>%
+  semi_join(nulwaarnemingen_zonderpuntlocaties, by = "locatie") %>%
+  st_point_on_surface() %>%
+  select(locatie, geom)
+
+aantallen_puntlocaties_add_0 <- locaties_punten %>%
+  left_join(nulwaarnemingen_zonderpuntlocaties)
+
+aantallen_puntlocaties_selectie <- aantallen_puntlocaties_selectie %>%
+  select(-x, -y) %>%
+  bind_rows(aantallen_puntlocaties_add_0)
+```
+
 
 
 ## Verschillende bezoeken per jaar aan eenzelfde meetnetlocatie
@@ -172,22 +196,30 @@ Het kan dan gaan om:
 Bij de verdere analyse is het belangrijk om beide situaties te onderscheiden. 
 
 ```{r}
-dubbele_puntlocaties <- aantallen_puntlocaties %>%
+
+aantallen_puntlocaties_selectie <- aantallen_puntlocaties_selectie %>%
+  left_join(select(bezoeken, visit_id, user_id, opmerking_bezoek = opmerking))
+
+dubbele_puntlocaties <- aantallen_puntlocaties_selectie %>%
   mutate(jaar = year(datum)) %>%
   group_by(meetnet, locatie, jaar) %>%
   filter(n_distinct(visit_id) > 1) %>%
   ungroup()
 
 ```
+
 ```{r}
 overzicht_dubbele_bezoeken <- dubbele_puntlocaties %>%
   st_drop_geometry() %>%
-  group_by(meetnet, locatie,jaar, datum, visit_id) %>%
+  mutate(link = str_c('<a href = "https://www.meetnetten.be/fieldwork/visits/', visit_id,'">', visit_id, '</a>')) %>%
+  group_by(meetnet, locatie,jaar, datum, user_id, visit_id, link) %>%
   summarise(n_punten = n()) %>%
   ungroup() %>%
   group_by(meetnet, locatie, jaar) %>%
   summarise(n_bezoeken = n_distinct(visit_id),
-            n_punten_per_bezoek = str_c(n_punten, collapse = "; ")) %>%
+            n_punten_per_bezoek = str_c(n_punten, collapse = "; "),
+            n_waarnemers = n_distinct(user_id),
+            link = str_c(link, collapse = "<br>")) %>%
   ungroup()
 ```
 Onderstaande tabel geeft een overzicht van de locaties/jaren met meer dan één bezoek.
@@ -196,12 +228,13 @@ We maken ook een kaartje per locatie op basis waarvan we beide situaties kunnen 
 ```{r}
 overzicht_dubbele_bezoeken %>%
   datatable(rownames = FALSE,
-            filter = 'top')
+            filter = 'top',
+            escape = FALSE)
 ```
 
 
 
-```{r, eval = FALSE}
+```{r testFigure, eval = FALSE}
 locatie_select <- "Westhoek Bij de Den en omgeving (c0-56-34 32 31)"
 meetnet_select <- "Duingentiaan"
 
@@ -209,20 +242,27 @@ meetnetlocatie <- locaties %>%
   filter(locatie == locatie_select)
 
 dubbele_puntlocaties_select <- dubbele_puntlocaties %>%
-  mutate(visit_id = str_c("visit_id = ", visit_id)) %>%
+  mutate(visit= str_c("visit_id = ", visit_id),
+         user = str_c("user_id = ", user_id),
+         user_visit = str_c(user, visit, sep = ", ")) %>%
   filter(.data$locatie == locatie_select,
          .data$meetnet == meetnet_select) 
 
 p <- ggplot(data = meetnetlocatie, aes(geometry = geom)) +
-  geom_sf() +
+  geom_sf(alpha = 0.2, fill = "yellow") +
   geom_sf(data = dubbele_puntlocaties_select, aes(geometry = geom, colour = code, ), size = 2, alpha = 0.5) +
-  facet_wrap(~jaar+locatie + visit_id) +
+  facet_wrap(~ datum + user_visit) +
   labs(title = str_c(meetnet_select, " - ", locatie_select))
 
 ggsave(p, filename = str_c("../output/",meetnet_select, "_", locatie_select, ".png"))
 ```
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
+
+dubbele_puntlocaties <- dubbele_puntlocaties %>%
+  mutate(visit= str_c("visit_id = ", visit_id),
+         user = str_c("user_id = ", user_id),
+         user_visit = str_c(user, visit, sep = ", "))
 
 if (!dir.exists("../output")) {
   
@@ -249,19 +289,32 @@ for (m in unique(dubbele_puntlocaties$meetnet)) {
 
     dubbele_puntlocaties_select <- dubbele_puntlocaties_meetnet %>%
         filter(locatie == l)
-
-    p <- ggplot(data = meetnetlocatie, aes(geometry = geom)) +
-      geom_sf() +
-      geom_sf(data = dubbele_puntlocaties_select, aes(geometry = geom, colour = code), alpha = 0.5, size = 2) +
-      facet_wrap(~jaar + visit_id) +
+    
+    for (j in unique(dubbele_puntlocaties_select$jaar)) {
+      
+      dubbele_puntlocaties_select_jaar <- dubbele_puntlocaties_select %>%
+        filter(jaar == j)
+      
+      p <- ggplot(data = meetnetlocatie, aes(geometry = geom)) +
+      geom_sf(alpha = 0.2, fill = "yellow") +
+      geom_sf(data = dubbele_puntlocaties_select_jaar, aes(geometry = geom, colour = code), alpha = 0.5, size = 2) +
+      facet_wrap(~datum + user_visit) +
       labs(title = str_c(m, " ", l))
     
-    ggsave(p, filename = str_c("../output/dubbele_bezoeken/",m, "_", l, ".png"))
- 
+    ggsave(p, filename = str_c("../output/dubbele_bezoeken/",m, "_", l, "_", j, ".png"))
+      
+    }
+
   }
 }
 
+```
 
+# Analyseset
 
+We schrijven de set van weerhouden observaties weg als een layer in de geopackage `plantenmeetnetten.gpkg`.
+
+```{r}
+st_write(aantallen_puntlocaties_selectie, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analyseset", delete_layer = TRUE)
 ```
 
