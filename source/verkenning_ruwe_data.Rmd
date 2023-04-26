@@ -35,6 +35,7 @@ library(kableExtra)
 library(DT)
 library(leaflet)
 library(lubridate)
+library(units)
 
 conflicts_prefer(dplyr::filter())
 ```
@@ -310,11 +311,13 @@ for (m in unique(dubbele_puntlocaties$meetnet)) {
 
 ```
 
+
 # Analyseset
 
 We schrijven de set van weerhouden observaties weg als een layer in de geopackage `plantenmeetnetten.gpkg`.
 
 ```{r}
 st_write(aantallen_puntlocaties_selectie, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analyseset", delete_layer = TRUE)
+
 ```
 
