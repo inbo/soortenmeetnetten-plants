@@ -317,7 +317,40 @@ for (m in unique(dubbele_puntlocaties$meetnet)) {
 We schrijven de set van weerhouden observaties weg als een layer in de geopackage `plantenmeetnetten.gpkg`.
 
 ```{r}
-st_write(aantallen_puntlocaties_selectie, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analyseset", delete_layer = TRUE)
+analyseset_cover <- aantallen_puntlocaties_selectie %>%
+  filter(schaal == "cover (Floron)") %>%
+  mutate(aantal_min = ifelse(code == "A", 0, 
+                             ifelse(code == "B", 1, 
+                                    ifelse(code == "C", 5, 
+                                           ifelse(code == "D", 25, 
+                                                  ifelse(code == "E", 50, 
+                                                         ifelse(code == "F", 500,
+                                                                ifelse(code == "G", 5000, 0))))))),
+         aantal_max = ifelse(code == "A", 1, 
+                             ifelse(code == "B", 5, 
+                                    ifelse(code == "C", 25, 
+                                           ifelse(code == "D", 50, 
+                                                  ifelse(code == "E", 500, 
+                                                         ifelse(code == "F", 5000,
+                                                                ifelse(code == "G", 10000, 0))))))),
+         aantal_mean = (aantal_max + aantal_min)/2 )
+         
+                                                                
+analyseset_individuen <- aantallen_puntlocaties_selectie %>%
+  filter(schaal == "Floron class (count)") %>%
+  mutate(aantal_max = ifelse(code == "G", 10000, aantal_max))
 
+analyseset <- analyseset_cover %>%
+  bind_rows(analyseset_individuen) %>%
+  arrange(meetnet, visit_id)
+
+st_write(analyseset, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analyseset", delete_layer = TRUE)
+
+```
+
+```{r}
+ aantallen_puntlocaties_selectie %>%
+  arrange(schaal, code) %>%
+  distinct(schaal,code, beschrijving_floroncode)
 ```
 
