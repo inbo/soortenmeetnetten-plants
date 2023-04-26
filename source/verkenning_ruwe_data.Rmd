@@ -338,7 +338,8 @@ analyseset_cover <- aantallen_puntlocaties_selectie %>%
                                                                 
 analyseset_individuen <- aantallen_puntlocaties_selectie %>%
   filter(schaal == "Floron class (count)") %>%
-  mutate(aantal_max = ifelse(code == "G", 10000, aantal_max))
+  mutate(aantal_max = ifelse(code == "G", 10000, aantal_max),
+         aantal_mean = (aantal_max + aantal_min)/2 )
 
 analyseset <- analyseset_cover %>%
   bind_rows(analyseset_individuen) %>%
