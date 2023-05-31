@@ -36,7 +36,7 @@ library(DT)
 library(leaflet)
 library(lubridate)
 library(units)
-library(terra)
+library(crosstalk)
 
 conflicts_prefer(dplyr::filter())
 ```
@@ -49,25 +49,25 @@ analyseset <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analy
 locaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", layer = "locaties")
 ```
 
-
-
 # Combineer bezoeken
 
-```{r}
+In sommige gevallen zijn er meerdere bezoeken per meetnetlocatie per jaar.
+Het kan dan voorkomen dat een deel van de tellingen overlappen.
 
+
+```{r}
 dubbele_bezoeken <- analyseset %>%
   mutate(jaar = year(datum)) %>%
   group_by(meetnet, locatie, jaar) %>%
   filter(n_distinct(visit_id) > 1) %>%
   ungroup() %>%
   st_transform(crs = 31370)
+```
 
-dubbels_by_visit_id <- dubbele_bezoeken %>%
-  group_by(visit_id) %>%
-  nest()
 
-visit_id_select <- "30985"
-observations_all <- dubbele_bezoeken
+
+
+```{r, eval = FALSE}
 
 dist_nearest_point <- function(visit_id_select, observations_all) {
   
@@ -119,7 +119,13 @@ bezoeken_identiek <- dubbele_bezoeken_distance %>%
   distinct(meetnet, locatie, visit_id, visit_id_nf)
 ```
 
-## Via raster
+
+
+Voor een meetnetlocatie met meerdere bezoeken per jaar selecteren we puntlocaties op volgende manier:
+
++ we leggen een raster van 10 m x 10 m over de meetnetlocatie
++ binnen elke rastercel berekenen we het totaal aantal of de totale oppervlakte per bezoek (op basis van de klassengemiddeldes van de floron-klassen)
++ als er binnen een rastercel observaties zijn van meer dan 1 bezoek, selecteren we de observaties van het bezoek met het hoogste totaal (totaal aantal of totaal oppervlakte) binnen die rastercel
 
 ```{r}
 
@@ -145,8 +151,82 @@ dubbele_bezoeken_grid <- dubbele_bezoeken %>%
          y = st_coordinates(dubbele_bezoeken)[,2]) %>%
   left_join(bbox_locaties, by = c("meetnet", "locatie")) %>%
   mutate(row = floor((x - xmin) / resolutie),
-         col = floor((y - ymin) / resolutie))
+         col = floor((y - ymin) / resolutie),
+         cell = str_c(row, "_", col)) 
+
+select_visit_per_cell <- dubbele_bezoeken_grid %>%
+  group_by(meetnet, locatie, jaar, visit_id, cell) %>%
+  summarise(aantal_tot = sum(aantal_mean),
+            n_points = n()) %>%
+  ungroup() %>%
+  group_by(meetnet, locatie, jaar, cell) %>%
+  mutate(n_visits = n_distinct(visit_id),
+         rank_aantal = rank(aantal_tot, ties.method = "random"),
+         rank_punten = rank(n_points)) %>%
+  ungroup() %>% 
+  group_by(meetnet, locatie, jaar, cell) %>%
+  mutate( selected = rank_aantal == max(rank_aantal)) %>%
+  ungroup()
+
+dubbele_bezoeken_selected <- dubbele_bezoeken_grid %>%
+  left_join(select(select_visit_per_cell, visit_id, cell, selected), by = c("visit_id", "cell")) 
+  
+analyseset_combine_visits <- analyseset %>%
+  left_join(select(dubbele_bezoeken_selected, id, selected), by = "id") %>%
+  mutate(selected = ifelse(is.na(selected), TRUE, selected),
+         jaar = year(datum))
+```
+
+Onderstaande kaart toont de  meetnetlocaties/jaren waar er een selectie van observaties gebeurde om overlappende tellingen te vermijden. De gele punten zijn de weerhouden observaties en de rode punten zijn de niet weerhouden observaties.
 
 
+```{r}
+
+locaties_combine_visits <- locaties %>%
+  semi_join(dubbele_bezoeken_not_selected, by = c("meetnet", "locatie"))
+
+sd <- analyseset_combine_visits %>%
+  semi_join(dubbele_bezoeken_not_selected, by = c("meetnet", "locatie", "jaar")) %>% 
+  st_transform(4326) %>%
+  SharedData$new()
+
+bscols(
+  filter_checkbox("selected", "Observatie geselecteerd", sd, ~ifelse(selected, "Ja", "Nee")),
+  filter_select("meetnet", "Selecteer meetnet", sd, ~meetnet),
+  filter_slider("jaar", "Selecteer jaar", sd, ~jaar))
+
+sd %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = locaties_combine_visits, label = ~locatie, group = "Meetnetlocaties") %>%
+  addCircleMarkers(color = ~ifelse(selected, "yellow", "red"), label = ~str_c("id=", id, ": ", meetnet, " ", datum, " ", code), group = "Observaties") %>%
+  addLayersControl(
+    overlayGroups = c("Observaties", "Meetnetlocaties"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+```
+
+
+# Totalen per meetnetlocatie per jaar
+
+```{r}
+total_year <- analyseset_combine_visits %>%
+  st_drop_geometry() %>%
+  group_by(meetnet, locatie, jaar, selected) %>%
+  summarise(tot_mean = sum(aantal_mean),
+            tot_min = sum(aantal_min),
+            tot_max = sum(aantal_max),
+            n_punten = n_distinct(id),
+            n_visits = n_distinct(visit_id)) %>%
+  ungroup()
+```
+
+```{r }
+total_year %>%
+  filter(selected) %>%
+  ggplot(aes(x = jaar, y = tot_mean, group = locatie)) +
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~meetnet, scales = "free_y")
 ```
 
