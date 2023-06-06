@@ -1,5 +1,5 @@
 ---
-title: "Combineer bezoeken voor zelfde meetnetlocatie binnen zelfde jaar"
+title: "PLantenmeetnetten - Data cleaning en data verkenning"
 output:
   bookdown::html_document2:
     toc: TRUE
@@ -42,7 +42,11 @@ library(giscoR)
 conflicts_prefer(dplyr::filter())
 ```
 
-# Lees analyseset
+# Data cleaning
+
+## Lees analyseset
+
+In het bestand 'verkenning_ruwe_data.html' wordt de opmaak van de analyseset beschreven 
 
 ```{r}
 analyseset <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analyseset")
@@ -50,7 +54,7 @@ analyseset <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analy
 locaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", layer = "locaties")
 ```
 
-# Combineer bezoeken
+## Combineer bezoeken
 
 In sommige gevallen zijn er meerdere bezoeken per meetnetlocatie per jaar.
 Het kan dan voorkomen dat een deel van de tellingen overlappen.
@@ -120,7 +124,7 @@ bezoeken_identiek <- dubbele_bezoeken_distance %>%
   distinct(meetnet, locatie, visit_id, visit_id_nf)
 ```
 
-## Methode
+### Methode
 
 Voor een meetnetlocatie met meerdere bezoeken per jaar selecteren we puntlocaties op volgende manier:
 
@@ -178,14 +182,15 @@ analyseset_combine_visits <- analyseset %>%
          jaar = year(datum)) %>%
   group_by(meetnet, locatie, jaar) %>%
   mutate(doubles_removed = !all(selected)) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(code = factor(code, levels = c("0", "A", "B", "C", "D", "E", "F", "G")))
   
 check <- dubbele_bezoeken_selected %>%
   group_by(id) %>%
   filter(n() > 1)
 ```
 
-## Resultaat
+### Resultaat
 
 Onderstaande kaart toont de  meetnetlocaties/jaren waar er een selectie van observaties gebeurde om overlappende tellingen te vermijden. De gele punten zijn de weerhouden observaties en de rode punten zijn de niet weerhouden observaties.
 
@@ -262,9 +267,9 @@ check_total_year %>%
 
 
 
+# Dataverkenning
 
-
-# Totalen per jaar per locatie {.tabset}
+## Totalen per jaar per locatie {.tabset}
 
 Hieronder tonen we voor elk meetnet de totalen (op basis van middens van de Floron-klassen) en het totaal aantal puntlocaties per jaar per locatie.
 
@@ -273,16 +278,7 @@ Hieronder tonen we voor elk meetnet de totalen (op basis van middens van de Flor
 duur_cyclus <- 3
 start_cyclus <- 2016
 
-total_year <- analyseset_combine_visits %>%
-  st_drop_geometry() %>%
-  filter(selected) %>%
-  group_by(meetnet, locatie, jaar, selected) %>%
-  summarise(tot_mean = sum(aantal_mean),
-            tot_min = sum(aantal_min),
-            tot_max = sum(aantal_max),
-            n_punten = n_distinct(id),
-            n_visits = n_distinct(visit_id)) %>%
-  ungroup() %>%
+analyseset_combine_visits <- analyseset_combine_visits %>%
   mutate(cyclus = ceiling((jaar - start_cyclus + 1) / duur_cyclus)) %>%
   group_by(cyclus) %>%
   mutate(periode = str_c(min(jaar), " - ", max(jaar))) %>%
@@ -291,21 +287,25 @@ total_year <- analyseset_combine_visits %>%
   mutate(n_jaar_cyclus = n_distinct(jaar)) %>%
   ungroup()
 
+total_year <- analyseset_combine_visits %>%
+  st_drop_geometry() %>%
+  filter(selected) %>%
+  group_by(meetnet, locatie, protocol, cyclus, periode, jaar, selected) %>%
+  summarise(tot_mean = sum(aantal_mean),
+            tot_min = sum(aantal_min),
+            tot_max = sum(aantal_max),
+            n_punten = n_distinct(id),
+            n_visits = n_distinct(visit_id)) %>%
+  ungroup()
+
 ```
 
-```{r}
-check_anaomalie <- total_year %>%
-  group_by(meetnet, locatie) %>%
-  mutate(cv_counts = sqrt(var(tot_mean)) / mean(tot_mean)) %>%
-  ungroup()
-```
 
 ```{r}
 
 total_year_long <- total_year %>%
-  select(meetnet, locatie, jaar, tot_mean, n_punten) %>%
+  select(meetnet, locatie, jaar, protocol, tot_mean, n_punten) %>%
   pivot_longer(cols = c("tot_mean", "n_punten"), names_to = "variable", values_to = "aantal")
-
 
 plot_nr <-  total_year_long %>%
   distinct(meetnet, locatie) %>%
@@ -315,7 +315,10 @@ plot_nr <-  total_year_long %>%
   ungroup()
 
 total_year_long <- total_year_long %>%
-  left_join(plot_nr, by = c("meetnet", "locatie"))
+  left_join(plot_nr, by = c("meetnet", "locatie")) %>%
+  mutate(variable = ifelse(variable == "tot_mean",
+                           ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal"),
+                           "totaal punten"))
 ```
 
 ```{r, fig.width = 10, fig.height= 4, results = 'asis'}
@@ -325,7 +328,7 @@ for (soort in unique(total_year_long$meetnet)) {
   total_year_soort <- total_year_long %>%
     filter(meetnet == soort)
   
-  cat(str_c("\n\n## ", soort, "{-} \n"))
+  cat(str_c("\n\n### ", soort, "{-} \n"))
   
   for (i in unique(total_year_soort$plotnr)) {
 
@@ -338,7 +341,8 @@ for (soort in unique(total_year_long$meetnet)) {
       geom_line() +
      # labs(title = str_c(soort, " - ", i)) +
       facet_grid(variable ~ locatie, scales = "free_y") +
-      theme(axis.text.x = element_text(angle = 90))
+      theme(axis.text.x = element_text(angle = 90),
+            axis.title.y = element_blank())
 
     plot(p)
 
@@ -349,7 +353,7 @@ for (soort in unique(total_year_long$meetnet)) {
 ```
 
 
-# Totalen per cyclus per locatie {.tabset}
+## Totalen per locatie per cyclus  {.tabset}
 
 Twee cycli werden al afgewerkt:
 
@@ -362,19 +366,23 @@ Maximum nemen? Of geeft dat overschatting door grotere zoekinspanning?
 
 ```{r}
 total_cyclus <- total_year %>%
-  group_by(meetnet, locatie, cyclus) %>%
+  group_by(meetnet, protocol, locatie, cyclus) %>%
   filter(tot_mean == max(tot_mean)) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
+  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig"))
 
 locatie_point <- locaties %>%
   st_transform(crs = 31370) %>%
-  inner_join(select(total_cyclus, meetnet, locatie, cyclus, tot_mean, periode), by = c("meetnet", "locatie")) %>%
+  inner_join(select(total_cyclus, meetnet, locatie, cyclus, tot_mean, periode, voorkomen), by = c("meetnet", "locatie")) %>%
   st_point_on_surface() 
 
 locatie_point_1_2 <- locatie_point %>%
   rename(geometry = geom) %>%
-  filter(cyclus <= 2) %>%
-  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig"))
+  filter(cyclus <= 2)
+
+analyseset_cyclus <- analyseset_combine_visits %>%
+  semi_join(total_cyclus, by = c("meetnet", "locatie", "jaar"))
 ```
 
 ```{r}
@@ -392,30 +400,138 @@ vlaanderen <- giscoR::gisco_get_nuts(country = "Belgium", nuts_level = "2", reso
 
 for (soort in unique(total_cyclus$meetnet)) {
   
-  cat(str_c("\n\n## ", soort, "{-} \n"))
+  cat(str_c("\n\n### ", soort, "{-} \n"))
   
   locatie_point_meetnet <- locatie_point_1_2 %>%
   filter(meetnet == soort) 
+  
+    variable_select <- total_cyclus %>%
+    filter(meetnet == soort) %>%
+    select(variable) %>%
+    unique()
   
   p1 <- ggplot() +
     geom_sf(data = locatie_point_meetnet, aes(size = tot_mean,  colour = voorkomen), alpha = 0.7) +
     geom_sf(data = vlaanderen, alpha = 0.2, colour = "grey") +
    # scale_shape_manual(values = c( 19, 4)) +
-    scale_colour_manual(values = c( "green", "black")) +
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
     facet_wrap(~periode, ncol = 1) +
-    theme_void()
+    theme_void() +
+    labs(size = variable_select$variable)
   
+
   p2 <- total_cyclus %>%
     filter(meetnet == soort) %>%
     filter(cyclus <= 2) %>%
-    ggplot(aes(x = periode, y = tot_mean, group = locatie)) +
-    geom_point(alpha = 0.5) +
-    geom_line(linetype = 2, alpha = 0.5)
-  
+    ggplot(aes(x = periode, y = tot_mean, group = locatie, colour = voorkomen)) +
+    geom_point(alpha = 0.7, size = 3) +
+    geom_line(linetype = 2, alpha = 0.8, colour = "grey") +
+    labs(y = variable_select$variable) +
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) 
+    
   plot(p1)
   
   plot(p2)
 }
 ```
 
+## Totalen per meetnet per cyclus   {.tabset}
+
+Tenslotte kunnen we de totalen per meetnet berekenen als de som over alle locaties. 
+We gaan er dus vanuit dat de soort overal in Vlaanderen volledig geteld wordt.
+
+We kunnen dan de som maken van de:
+
++ klassenmiddens
++ klassenminima
++ klassenmaxima
+
+```{r}
+total_meetnet_cyclus <- total_cyclus %>%
+  group_by(meetnet, periode, variable, protocol, cyclus) %>%
+  summarise(tot_mean = sum(tot_mean),
+            tot_max = sum(tot_max),
+            tot_min = sum(tot_min)) %>%
+  ungroup() %>%
+  filter(cyclus %in% c(1,2))
+
+
+```
+
+
+```{r, results = 'asis'}
+
+for (soort in unique(total_meetnet_cyclus$meetnet)) {
+  
+  cat(str_c("\n\n### ", soort, "{-} \n"))
+  
+  variable_select <- total_meetnet_cyclus %>%
+    filter(meetnet == soort) %>%
+    select(variable) %>%
+    unique()
+
+  variable_select2 <- str_remove(variable_select$variable, "totaal ")   
+  
+  p1 <- total_meetnet_cyclus %>%
+    filter((meetnet == soort)) %>%
+    filter(cyclus <= 2) %>%
+    filter(cyclus >= 1) %>%
+    ggplot(aes(x = periode, y = tot_mean, ymin = tot_min, ymax = tot_max)) +
+    geom_point() +
+    geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+    labs(y = variable_select)
+  
+  p2 <- analyseset_cyclus %>%
+    filter(meetnet == soort) %>%
+    filter(cyclus <= 2) %>%
+    ggplot(aes(x = code, fill = periode)) +
+    geom_bar(position = "dodge", ) +
+    labs(x = str_c("Floron code - ", variable_select2), y = "Aantal punten") +                     
+    scale_x_discrete(drop = FALSE)
+    
+  plot(p1)
+  
+  plot(p2)
+}
+```
+
+## Relatieve verschillen tussen cycli
+
+Hieronder de relatieve verschillen van de totalen op basis van de klassenmiddens.
+
+Onzekerheid in rekening brengen?
+
+```{r}
+verschil_meetnet <- total_meetnet_cyclus %>%
+  select(-periode) %>%
+  pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "tot_min", "tot_max")) %>%
+  mutate(verschil_rel = (tot_mean_2 - tot_mean_1) / tot_mean_1,
+         verschil_rel_log = log(1 + verschil_rel) + 1,
+         klasse = ifelse(verschil_rel < -0.25, "--",
+                         ifelse(verschil_rel < -0.10, "-",
+                                ifelse(verschil_rel < 0.10, "~",
+                                      ifelse(verschil_rel < 0.33, "+", "++"))))) 
+
+order_trend <- (verschil_meetnet %>%
+  arrange(verschil_rel))$meetnet
+```
+
+
+```{r}
+breaks_log <- log(c(0, 0.05, 0.25, 0.5, 0.75, 1, 1.33, 2,  4, 11, 31)) + 1
+labels_show <- str_c(c(-100, -95, -75, -50, -25, 0, 33, 100, 300, 1000, 3000), " %")
+
+verschil_meetnet %>%
+  mutate(meetnet = factor(meetnet, levels = order_trend)) %>%
+  ggplot(aes(x = verschil_rel_log, y = meetnet, label = klasse, colour = klasse)) +
+  geom_vline(xintercept = 1, linetype = 2) +
+  geom_vline(xintercept = log(0.75) + 1, linetype = 3) +
+  geom_vline(xintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 5) +
+  geom_text(size = 3, colour = "white") +
+  labs(x = "Vreschil tussen periode 2019 - 2021 en periode 2016 - 2018", y = "Soort") +
+  scale_x_continuous(breaks = breaks_log, labels = labels_show) +
+  # scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", axis.text.x = element_text(angle = 90))
+```
 
