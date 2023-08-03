@@ -1,0 +1,179 @@
+# Methodiek
+
+```{r}
+
+names_sc <- get_counts_smp(species_group = "planten") %>%
+  distinct(soort_nl, soort_wet)
+
+meetnet_characteristics <- get_characteristics_smp(species_group = "planten") %>%
+  rename(soort_nl = meetnet)
+
+```
+
+## Ontwerp van de soortenmeetnetten
+
+In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode.
+Een dergelijke gestructureerde monitoring biedt de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen.
+Het ontwerp van de vaatplantenmeetnetten wordt in detail beschreven in het monitoringsprotocol vaatplanten [@van_landuyt_monitoringsprotocol_2019].
+Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@van_landuyt_monitoringsprotocol_2019].
+Het monitoringsprotocol is gebaseerd op de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].
+
+We vatten de belangrijkste onderdelen van de vaatplantenmeetnetten nog eens kort samen.
+
+### Selectie van de soorten
+
+Voor twee groepen van soorten streven we naar een monitoring op basis van meetnetten: Europees prioritaire soorten en Vlaams prioritaire soorten [@westra_inleiding_2014].
+
+-   De **Europees prioritaire soorten** (EPS) zijn de zogenaamde **Natura 2000 - soorten** die op Bijlage II en/of Bijlage IV van de Europese Habitatrichtlijn (HRL) staan.
+
+-   De **Vlaams prioritaire soorten** (VPS) staan niet op een bijlage van de HRL (het zijn dus geen Natura 2000 - soorten), maar ze worden wel als prioritair beschouwd voor het Vlaamse natuurbeleid, vaak omwille van het feit dat ze in Vlaanderen en/of Europa op de Rode Lijst staan.
+
+In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde vaatplanten en de beleidsrelevantie van de soorten.
+Voor de drie Europees prioritaire soorten gebeurt de monitoring door het INBO.
+Alle Vlaams prioritaire soorten worden door vrijwilligers geteld.
+In dit rapport bespreken we enkel de resultaten van de vrijwilligersmeetnetten.
+(*of toch ook resutaten van de INBO-meetnetten toevoegen??*) Voor de resultaten van de INBO-meetnetten verwijzen we naar ... (*output?*).
+
+```{r tabsoorten}
+
+meetnet_prof <- tibble(soort_nl = c("Drijvende waterweegbree", "Groenknolorchis", "Kruipend moerasscherm"),
+                       soort_wet = c("Luronium natans", "Liparis loeselii", "Apium repens"),
+                       type_soort = "EPS",
+                       type_meetnet = "INBO")
+
+meetnet_characteristics %>%
+  mutate(type_meetnet = "vrijwilligers") %>%
+  left_join(names_sc, by = "soort_nl") %>%
+  bind_rows(meetnet_prof) %>%
+  arrange(soort_nl) %>%
+  select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, Meetnet  = type_meetnet) %>%
+    unique() %>%
+  kable(caption = "Overzicht van de vaatplanten waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+        escape = FALSE,
+        booktabs = TRUE,
+        align = c("l", "l", "c", "c"),
+      row.names = FALSE) %>%
+  kable_styling() %>%
+  column_spec(2, italic = TRUE) 
+
+```
+
+\needspace{50mm}
+
+### Telmethode
+
+Voor elke meetnetlocatie wordt eenmaal om de drie jaar de totale populatiegrootte geschat in de optimale periode om de soort te treffen.
+
+Het schatten van de populatiegrootte gebeurt door de meetnetlocatie systematisch af te lopen in trajecten die ongeveer 5 meter van elkaar liggen.
+Elke groeiplaats wordt met een GPS ingemeten, bij voorkeur via een smartphone en gebruik makend van de mobiele meetnetten-applicatie.
+Ook de gevolgde weg ("track") wordt met een smartphone (bij voorkeur via de meetnetten-applicatie) of GPS opgeslagen.
+Het opslaan van een track laat de waarnemer toe om dubbeltellingen te vermijden enerzijds en om bij de verwerking met de inventarisatie-inspanning rekening te houden anderzijds [@van_landuyt_monitoringsprotocol_2019].
+
+Op elke groeiplaats wordt de abundantie geschat.
+Afhankelijk van de soort, gebeurt dit op twee manieren:
+
+-   Bij soorten die rozetten vormen of waarvan individuele exemplaren gemakkelijk te onderscheiden zijn, wordt het aantal rozetten of individuen geschat (vb. krabbenscheer, purperorchis).
+
+-   Bij soorten die zich vegetatief vermeerderen via uitlopers of die zoden vormen is het onmogelijk om het aantal individuen in te schatten (vb. kruipend moerasscherm, klimopklokje).
+    Hier wordt de aaneengesloten oppervlakte waarbinnen de soort aanwezig is geschat en niet de eigenlijke bedekking van de soort.
+
+Voor de schatting van de populatiegrootte maken we gebruik van de Floron-schaal (Tabel \@ref(tab:floron)).
+
+```{r floron}
+
+floron <- tibble("Floron-code" = c("0", "A", "B", "C", "D", "E", "F", "G"),
+                 "Aantal individuen" = c("0", "1", "2-5", "6-25", "26-50", "51-500", "501-5000", "> 5000"),
+                 "Oppervlakte (m²)" = c("0", "< 1", "1-5", "5-25", "25-50", "50-500", "500-5000", "> 5000"))
+
+floron %>%
+  kable(caption = "Floron-schaal voor de schatting van de populatiegrootte op een groeiplaats",
+        booktabs = TRUE) %>%
+  kable_styling()
+
+```
+
+Tabel \@ref(tab:tabkarakteristiekentelperiode) toont per meetnet de manier waarop de abundantie wordt geschat, de geschikte telperiode en het aantal locaties.
+Elk meetnet bevat alle gekende locaties waar de soort voorkomt.
+
+```{r tabkarakteristiekentelperiode}
+
+meetnet_telperiode_table <- meetnet_characteristics %>%
+  mutate(start_telperiode = format(start_telperiode, "%d/%m"),
+         einde_telperiode = format(einde_telperiode, "%d/%m"),
+         telperiode = str_c(start_telperiode, " - ", einde_telperiode),
+         protocol = str_remove(protocol, "Vaatplanten - ")) %>%
+  distinct(soort_nl, protocol, telperiode, n_locaties) %>%
+  select(Meetnet = soort_nl, Populatieschatting =  protocol, Telperiode = telperiode, "Aantal locaties" = n_locaties)
+
+ meetnet_telperiode_table %>%
+  kable(caption = "Overzicht van de karakteristieken van de vaatplantenmeetnetten",
+        booktabs = TRUE,) %>%
+  kable_styling()
+
+```
+
+## Ingezamelde telgegevens
+
+```{r, message=FALSE, warning=FALSE}
+monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "planten",
+                                                 aggregation_level = "meetnet")
+
+monitoring_effort_soortgroep <- calculate_monitoring_effort(species_group = "planten",
+                                                 aggregation_level = "species_group") %>%
+  mutate(meetnet = "Alle vaatplantmeetnetten")
+
+monitoring_effort_overall <- calculate_monitoring_effort(species_group = "planten",
+                                                 aggregation_level = "overall")
+
+monitoring_effort <- monitoring_effort_meetnet %>%
+  bind_rows(monitoring_effort_soortgroep) %>%
+  arrange(meetnet)
+
+```
+
+Tellers voeren de telgegevens in via het web portaal [meetnetten.be](https://www.meetnetten.be/) of via de mobiele [meetnetten-app](https://play.google.com/store/apps/details?id=nl.zostera.meetnetten&hl=nl).
+Sinds de start van de meetnetten in 2016 hebben `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellers", "aantal"]` tellers `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellingen", "aantal"]` tellingen op `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellocaties", "aantal"]` meetnetlocaties ingevoerd.
+In Figuur \@ref(fig:figinspanning) zien we de trend van de tellingen in de tijd voor alle vaatplantmeetnetten samen.
+
+```{r figinspanning,  fig.cap = "Monitoringinspanning voor alle vaatplantmeetnetten samen", warning=TRUE}
+
+plot1 <- monitoring_effort_soortgroep %>%
+  filter(jaar > 2015, jaar <= 2022) %>%
+  ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +
+  geom_point() +
+  geom_line() +
+  ylim(0, NA) +
+  labs(x = "Jaar", y = "Aantal") 
+
+if (opts_knit$get("rmarkdown.pandoc.to") == "html") {
+  
+  ggplotly(plot1)  %>%
+  config(
+    modeBarButtonsToRemove = list(
+      "lasso2d", "select2d", "autoScale2d", "hoverClosestCartesian",
+      "hoverCompareCartesian", "toggleSpikelines"
+    ),
+    displaylogo = FALSE
+  )
+  
+} else {
+  
+  plot1
+}
+
+```
+
+## Dataontsluiting
+
+De databank die onderdeel uitmaakt van [meetnetten.be](www.meetnetten.be) is enkel toegankelijk binnen het INBO.
+Op regelmatige basis maakt het INBO datasets publiek toegankelijk via [GBIF](https://www.gbif.org/) (Global Biodiversity Information Facility).
+Omdat het meestal om kwetsbare soorten gaat, passen we op de datasets een vervaging toe van 1, 5 of 10 km toe afhankelijk van de soort.
+Deze vervaging komt overeen met de vervagingsregels die toegepast worden op waarnemingen.be.
+De publiek ontsloten datasets bevatten dus niet de exacte tellocaties.
+
+Voor de vaatplantenmeetnetten gaat het om volgende datasets:
+
+-   Populatieschatting via het aantal individuen per groeiplaats [@piesschaert_vaatplanten_n_2022]
+-   Populatieschatting via oppervlakte van de groeiplaats [@piesschaert_vaatplanten_opp_2022]
+
+Deze datasets worden op regelmatige basis (normaal gezien elk jaar) geupdate.

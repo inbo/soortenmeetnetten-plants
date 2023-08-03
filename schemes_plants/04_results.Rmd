@@ -1,0 +1,245 @@
+# Overzicht van de resultaten
+
+## Groeiplaatsen per meetcyclus
+
+*Eventueel data nog vervagen*
+
+Onderstaande kaart geeft een overzicht van alle tellingen uitgevoerd in kader van de vaatplantenmeetnetten (na preprocessing).
+De bijhorende figuur geeft de distributie van de Floroncodes weer voor de twee afgewerkte meetcycli.
+
+De filters laten toe om een soort en een meetcyclus te selecteren.
+Je kan ook kiezen om al dan niet nulwaarnemingen te visualiseren.
+
+```{r}
+radius_show <- tibble(code = c("0","A", "B", "C", "D", "E","F","G"),
+                      radius = c(1,3,4,5,6,7,9,11) + 2)
+
+data_meetnet <- analyseset_cyclus %>%
+  filter(cyclus %in% c(1, 2)) %>%
+  left_join(radius_show, by = "code") %>%
+  mutate(nulwaarneming = ifelse(code == "0", "0", "A-B-C-D-E-F-G")) 
+  
+sd <- SharedData$new(data_meetnet)
+
+bscols(widths = c(3, 3, 5),
+       filter_checkbox("cyclus", "Meetcyclus", sd, ~periode),
+       filter_checkbox("nulwaarneming", "Type waarnemingen", sd, ~nulwaarneming),
+       filter_select("meetnet", "Soort", sd, ~meetnet)
+  )
+
+bscols(widths = c(6, 6),
+  leaflet(sd) %>%
+    addTiles() %>%
+    #addPolygons(data = locaties_meetnet, label = ~locatie) %>%
+    addCircleMarkers(color = ~ifelse(cyclus == 1, "#282A72", "#EF972C"),  label = ~str_c(meetnet, " ", code), stroke = FALSE,
+                     radius = ~radius, fillOpacity = 0.5),
+  plot_ly(sd, x = ~code, color = ~periode, colors = c("#282A72", "#EF972C")) %>%
+    add_histogram()
+)
+```
+
+## Totale populatiegrootte voor Vlaanderen per meetcyclus
+
+```{r}
+
+total_meetnet_cyclus <- total_cyclus %>%
+  group_by(meetnet, periode, variable, protocol, cyclus) %>%
+  summarise(tot_mean = sum(tot_mean),
+            tot_max = sum(tot_max),
+            tot_min = sum(tot_min)) %>%
+  ungroup() %>%
+  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig")) %>%
+  filter(cyclus %in% c(1,2))
+
+verschil_meetnet <- total_meetnet_cyclus %>%
+  select(-periode, -voorkomen) %>%
+  pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "tot_min", "tot_max")) %>%
+  mutate(verschil_rel = (tot_mean_2 - tot_mean_1) / tot_mean_1,
+         verschil_percent = verschil_rel * 100,
+         verschil_rel_log = log(1 + verschil_rel) + 1,
+         klasse = ifelse(verschil_rel < -0.25, "--",
+                         ifelse(verschil_rel < -0.10, "-~",
+                                ifelse(verschil_rel < 0.10, "~",
+                                      ifelse(verschil_rel < 0.33, "+~", "++"))))) 
+
+order_trend <- (verschil_meetnet %>%
+  arrange(verschil_rel))$meetnet
+```
+
+Tabel \@ref(tab:tabresultaat) toont de totale populatiegrootte per meetcyclus voor de Vlaams prioritaire soorten.
+De tabel toont ook de relatieve verschillen tussen de meetcycli.
+Deze verschillen tonen we ook in Figuur \@ref(fig:figresultaat).
+
+```{r tabresultaat}
+verschil_meetnet %>%
+  mutate(verschil_show = str_c( ifelse(verschil_percent > 0, "+", ""), round(verschil_percent), " %")) %>%
+  select(soort = meetnet, variabele = variable, "2016 - 2018" = tot_mean_1, "2019 - 2021" = tot_mean_2, "relatief verschil" = verschil_show) %>%
+  kable(caption = "Totale populatiegrootte van de Vlaams prioritaire vaatplanten per meetcyclus en reltief verschil tussen de meetcycli") %>%
+  kable_styling()
+  
+```
+
+```{r figresultaat, fig.height = 7, fig.width = 10,  fig.cap = "Relatief verschil in totale populatiegrootte tussen de periodes 2016 - 2018 en 2019 - 2021"}
+
+breaks_log <- log(c(0, 0.05, 0.25, 0.5, 0.75, 1, 1.33, 2,  4, 11, 31)) + 1
+labels_show <- str_c(c(-100, -95, -75, -50, -25, 0, 33, 100, 300, 1000, 3000), " %")
+
+verschil_meetnet %>%
+  mutate(meetnet = factor(meetnet, levels = order_trend)) %>%
+  ggplot(aes(x = verschil_rel_log, y = meetnet, label = klasse, colour = klasse)) +
+  geom_vline(xintercept = 1, linetype = 2) +
+  geom_vline(xintercept = log(0.75) + 1, linetype = 3) +
+  geom_vline(xintercept = log(1.33) + 1, linetype = 3) +
+  geom_point(aes(colour = klasse), size = 5) +
+  geom_text(size = 3, colour = "white") +
+  labs(x = "Vreschil tussen periode 2019 - 2021 en periode 2016 - 2018", y = "Soort") +
+  scale_x_continuous(breaks = breaks_log, labels = labels_show) +
+  # scale_color_manual(values = klasse_color) +
+  theme(legend.position = "hide", axis.text.x = element_text(angle = 90))
+```
+
+# Resultaten per meetnet: totalen per jaar
+
+```{r}
+
+locaties <- read_sf("../data/plantenmeetnetten.gpkg", "locaties")
+
+locatie_point <- locaties %>%
+  st_transform(crs = 31370) %>%
+  inner_join(select(total_cyclus, meetnet, locatie, cyclus, tot_mean, periode, voorkomen), by = c("meetnet", "locatie")) %>%
+  st_point_on_surface() 
+
+locatie_point_1_2 <- locatie_point %>%
+  rename(geometry = geom) %>%
+  filter(cyclus <= 2)
+
+```
+
+```{r}
+vlaanderen <- giscoR::gisco_get_nuts(country = "Belgium", nuts_level = "2", resolution = "01") %>%
+  filter(NUTS_NAME %in% c("Prov. Antwerpen",
+                          "Prov. Oost-Vlaanderen",
+                          "Prov. West-Vlaanderen",
+                          "Prov. Vlaams-Brabant",
+                          "Prov. Limburg (BE)")) %>%
+  st_transform(crs = 31370)
+
+```
+
+*Niet in eindrapport*
+
+```{r}
+
+total_year_long <- total_year %>%
+  select(meetnet, locatie, jaar, protocol, tot_mean, n_punten) %>%
+  pivot_longer(cols = c("tot_mean", "n_punten"), names_to = "variable", values_to = "aantal")
+
+plot_nr <-  total_year_long %>%
+  distinct(meetnet, locatie) %>%
+  group_by(meetnet) %>%
+  mutate(rank_loc = rank(locatie),
+         plotnr = ceiling(rank_loc/5)) %>%
+  ungroup()
+
+total_year_long <- total_year_long %>%
+  left_join(plot_nr, by = c("meetnet", "locatie")) %>%
+  mutate(variable = ifelse(variable == "tot_mean",
+                           ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal"),
+                           "totaal punten"))
+```
+
+```{r, fig.width = 10, fig.height= 4, results = 'asis'}
+for (soort in unique(total_year_long$meetnet)) {
+  
+  total_year_soort <- total_year_long %>%
+    filter(meetnet == soort)
+  
+  cat(str_c("\n\n## ", soort, " \n"))
+
+  for (i in unique(total_year_soort$plotnr)) {
+
+    p <- total_year_soort %>%
+      filter(plotnr == i) %>%
+      mutate(locatie = str_wrap(locatie, width = 15)) %>%
+      ggplot(aes(x = jaar, y = aantal, colour = variable)) +
+      geom_point() +
+      geom_line() +
+     # labs(title = str_c(soort, " - ", i)) +
+      facet_grid(variable ~ locatie, scales = "free_y") +
+      theme(axis.text.x = element_text(angle = 90),
+            axis.title.y = element_blank())
+
+    plot(p)
+
+  }
+}
+```
+
+# Resultaten per meetnet: totalen per meetcyclus
+
+```{r, results = 'asis'}
+
+for (soort in unique(total_year_long$meetnet)) {
+  
+  locatie_point_meetnet <- locatie_point_1_2 %>%
+    filter(meetnet == soort) 
+  
+  variable_select <- total_cyclus %>%
+    filter(meetnet == soort) %>%
+    select(variable) %>%
+    unique()
+  
+  variable_select2 <- str_remove(variable_select$variable, "totaal ")
+  
+  cat(str_c("\n\n## ", soort, " \n"))
+  
+  p1 <- ggplot() +
+    geom_sf(data = locatie_point_meetnet, aes(size = tot_mean,  colour = voorkomen), alpha = 0.7) +
+    geom_sf(data = vlaanderen, alpha = 0.2, colour = "grey") +
+   # scale_shape_manual(values = c( 19, 4)) +
+    scale_colour_manual(values = c( "aanwezig" = "#282A72", "afwezig" = "black")) +
+    facet_wrap(~periode, ncol = 1) +
+    theme_void() +
+    labs(size = variable_select$variable)
+  
+
+  p2 <- total_cyclus %>%
+    filter(meetnet == soort) %>%
+    filter(cyclus <= 2) %>%
+    ggplot(aes(x = periode, y = tot_mean, group = locatie, colour = voorkomen)) +
+    geom_point(alpha = 0.7, size = 3) +
+    geom_line(linetype = 2, alpha = 0.8, colour = "grey") +
+    labs(y = str_c(variable_select$variable, " per locatie")) +
+    scale_colour_manual(values = c( "aanwezig" = "#282A72", "afwezig" = "black")) +
+    theme(legend.position = "bottom") +
+    theme(legend.position = "hide")
+  
+  
+  p3 <- total_meetnet_cyclus %>%
+    filter((meetnet == soort)) %>%
+    filter(cyclus <= 2) %>%
+    filter(cyclus >= 1) %>%
+    ggplot(aes(x = periode, y = tot_mean, ymin = tot_min, ymax = tot_max, colour = voorkomen)) +
+    geom_point(size = 3) +
+    #geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+    labs(y = str_c(variable_select$variable, " per meetnet")) +
+    scale_colour_manual(values = c( "aanwezig" = "#282A72", "afwezig" = "black")) +
+    theme(legend.position = "hide")
+  
+  p4 <- analyseset_cyclus %>%
+    filter(meetnet == soort) %>%
+    filter(cyclus <= 2) %>%
+    ggplot(aes(x = code, fill = periode)) +
+    geom_bar(position = "dodge", ) +
+    labs(x = str_c("Floron code - ", variable_select2), y = "Aantal punten") +                     
+    scale_x_discrete(drop = FALSE)
+  
+  plot(p4)
+  
+  plot(p1)
+  
+  grid.arrange(p2, p3, ncol = 2)
+  
+}
+
+```

@@ -1,0 +1,70 @@
+## Analyse van de telgegevens
+
+### Selectie analyseset
+
+### Preprocessing
+
+In sommige gevallen zijn er meerdere bezoeken per meetnetlocatie per jaar.
+Het kan dan voorkomen dat een deel van de tellingen overlappen en dat bepaalde groeiplaatsen dubbel geteld worden.
+Hierdoor kunnen we dus een overschatting krijgen van de populatiegrootte in de meetnetlocatie.
+
+Om deze (potentiële) dubbeltellingen te verwijderen gaan we als volgt te werk:
+
+-   we leggen een raster van 10 m x 10 m over de meetnetlocatie;
+-   binnen elke rastercel berekenen we het totaal aantal of de totale oppervlakte per bezoek (op basis van de klassenmiddens van de Floron-klassen);
+-   als er binnen een rastercel observaties zijn van meer dan 1 bezoek, selecteren we de observaties van het bezoek met het hoogste totaal (totaal aantal of totale oppervlakte) binnen die rastercel.
+
+### Berekening van de populatiegrootte per meetnetlocatie
+
+In een eerste stap berekenen we de populatiegrootte per meetnetlocatie voor elk jaar (waarin er een telling is gebeurd) Dit doen we door de klassenmiddens van de Floron-klassen te sommeren van alle gemarkeerde groeiplaatsen binnen een bepaald jaar.
+
+```{r}
+
+analyseset_preprocessed <- read_sf("../data/plantenmeetnetten.gpkg", "analyseset_preprocessed")
+
+duur_cyclus <- 3
+start_cyclus <- 2016
+
+analyseset_preprocessed <- analyseset_preprocessed %>%
+  mutate(cyclus = ceiling((jaar - start_cyclus + 1) / duur_cyclus)) %>%
+  group_by(cyclus) %>%
+  mutate(periode = str_c(min(jaar), " - ", max(jaar))) %>%
+  ungroup() %>%
+  group_by(cyclus, meetnet, locatie) %>%
+  mutate(n_jaar_cyclus = n_distinct(jaar)) %>%
+  ungroup()
+
+total_year <- analyseset_preprocessed %>%
+  st_drop_geometry() %>%
+  group_by(meetnet, locatie, protocol, cyclus, periode, jaar) %>%
+  summarise(tot_mean = sum(aantal_mean),
+            tot_min = sum(aantal_min),
+            tot_max = sum(aantal_max),
+            n_punten = n_distinct(id),
+            n_visits = n_distinct(visit_id)) %>%
+  ungroup()
+
+```
+
+In een tweede stap berekenen we de populatiegrootte per meetcyclus.
+Twee meetcycli werden al afgewerkt: 2016 - 2018 en 2019 - 2021.
+In de meeste gevallen wordt een meetlocatie maar eenmaal per cyclus geteld.
+De waargenomen populatiegrootte in dat jaar komt dan overeen met de populatiegrootte voor de meetcyclus.
+
+Voor meetlocaties die in meerdere jaren binnen dezelfde cyclus werden geteld, stellen we de populatiegrootte voor de meetcyclus gelijk aan de maximale populatiegrootte over de verschillende getelde jaren.
+
+```{r}
+total_cyclus <- total_year %>%
+  group_by(meetnet, protocol, locatie, cyclus) %>%
+  filter(tot_mean == max(tot_mean)) %>%
+  ungroup() %>%
+  mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
+  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig"))
+
+analyseset_cyclus <- analyseset_preprocessed %>%
+  semi_join(total_cyclus, by = c("meetnet", "locatie", "jaar"))
+```
+
+### Berekening van de totale populatiegrootte voor Vlaanderen
+
+Per meetcyclus sommeren we de populatiegrootte van alle meetnetlocaties om de totale populatiegrootte te bekomen voor Vlaanderen.
