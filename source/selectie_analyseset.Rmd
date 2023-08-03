@@ -57,10 +57,10 @@ aantallen <- read_csv2("../data/ruwe_data/aantallen_planten.csv") %>%
 
 ```{r}
 
-aantallen_puntlocaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "aantallen") %>%
+aantallen_puntlocaties <- read_sf("../data/plantenmeetnetten.gpkg", "aantallen_ruw") %>%
   mutate(code = factor(code))
-locaties <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "locaties")
-tracks <- read_sf("../data/ruwe_data/plantenmeetnetten.gpkg", "tracks")
+locaties <- read_sf("../data/plantenmeetnetten.gpkg", "locaties")
+tracks <- read_sf("../data/plantenmeetnetten.gpkg", "tracks")
 
 ```
 
@@ -345,7 +345,7 @@ analyseset <- analyseset_cover %>%
   bind_rows(analyseset_individuen) %>%
   arrange(meetnet, visit_id)
 
-st_write(analyseset, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "analyseset", delete_layer = TRUE)
+st_write(analyseset, dsn = "../data/plantenmeetnetten.gpkg", layer = "analyseset", delete_layer = TRUE)
 
 ```
 

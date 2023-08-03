@@ -198,9 +198,9 @@ dir.create("../data/ruwe_data")
 write_csv2(aantallen_planten, "../data/ruwe_data/aantallen_planten.csv")
 write_csv2(bezoeken, "../data/ruwe_data/bezoeken_planten.csv")
 
-st_write(aantallen_planten_sf, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "aantallen", delete_layer = TRUE)
-st_write(locaties, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "locaties", delete_layer = TRUE)
-st_write(tracks, dsn = "../data/ruwe_data/plantenmeetnetten.gpkg", layer = "tracks", delete_layer = TRUE)
+st_write(aantallen_planten_sf, dsn = "../data/plantenmeetnetten.gpkg", layer = "aantallen_ruw", delete_layer = TRUE)
+st_write(locaties, dsn = "../data/plantenmeetnetten.gpkg", layer = "locaties", delete_layer = TRUE)
+st_write(tracks, dsn = "../data/plantenmeetnetten.gpkg", layer = "tracks", delete_layer = TRUE)
 
 ```
 
