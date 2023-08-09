@@ -10,7 +10,7 @@ author:
     affiliation: Instituut voor Natuur- en Bosonderzoek (INBO)
     corresponding: true
   - name:
-      given: Van Landuyt
+      given: Wouter
       family: Van Landuyt
     email: wouter.vanlanduyt@inbo.be
     orcid: 0000-0002-1915-4486

@@ -35,6 +35,7 @@ library(kableExtra)
 library(DT)
 library(leaflet)
 library(lubridate)
+library(mapview)
 library(units)
 
 conflicts_prefer(dplyr::filter())
@@ -185,6 +186,72 @@ aantallen_puntlocaties_selectie <- aantallen_puntlocaties_selectie %>%
 ```
 
 
+## Check bezoeken aan km-hokken
+
+In eerste instantie bestonden de meetnetlocaties uit km-hokken. 
+Vervolgens werden de meetnetlocaties preciezer afgelijnd.
+
+In de meeste gevallen werden de km-hokken rechtstreeks vervangen door de nieuwe meetnetlocaties. De bezoeken van de km-hokken werden dan automatisch toegekend aan de nieuwe meetnetlocaties.
+
+In andere gevallen werd een km-hok opgedeeld in meerdere meetnetlocaties. De km-hok werd dan op inactief gezet. 
+Maar de bezoeken werden nog niet toegekend aan de verschillende (nieuwe) meetnetlocaties.
+
+Daarom controleren we de tellingen aan de (niet meer actieve) km-hokken en kijken in welke huidige meetnetlocaties die liggen. 
+We creëren dan een nieuw bezoek voor de huidige meetnetlocatie (als er nog geen bezoek op dezelfde datum is ingevoerd).
+
+```{r}
+
+locaties_hok <- locaties %>%
+  mutate(nodes = npts(geom,by_feature = TRUE),
+         area = drop_units(st_area(geom))) %>%
+  st_drop_geometry() %>%
+  mutate(is_hok = nodes == 5 & (abs(area - 1000000) < 10000)) %>%
+  filter(is_hok)
+  
+bezoeken_nt_hok <- check_bezoeken %>%
+  anti_join(locaties_hok, by = c("locatie", "meetnet")) %>%
+  select(meetnet, locatie, datum, visit_id_overlap = visit_id)
+
+locaties_nt_hok <- locaties %>%
+  anti_join(locaties_hok, by = c("locatie", "meetnet")) %>%
+  select(meetnet_loc = meetnet, locatie, is_active)
+
+aantallen_puntlocaties_hok <- aantallen_puntlocaties %>%
+  semi_join(locaties_hok, by = c("locatie", "meetnet")) %>%
+  rename(locatie_hok = locatie) %>%
+  st_join(locaties_nt_hok) %>%
+  filter(meetnet == meetnet_loc) %>%
+  st_drop_geometry() %>%
+  group_by(locatie_hok) %>%
+  mutate(overlap = any(!is.na(locatie)),
+            afwezig = sum(aantal_min) == 0) %>%
+  ungroup() %>%
+  left_join(bezoeken_nt_hok, by = c("meetnet", "locatie", "datum"))
+
+aantallen_puntlocaties_extra <- aantallen_puntlocaties_hok %>%
+  filter(is.na(visit_id_overlap), overlap, !afwezig) %>%
+  select(-meetnet_loc, -locatie_hok, -overlap, -visit_id_overlap, -afwezig, -is_active) %>%
+  st_as_sf(coords = c("x", "y"), crs = 4326)
+
+visit_id_new <- aantallen_puntlocaties_extra %>%
+  distinct(locatie, visit_id) %>%
+  group_by(visit_id) %>%
+  mutate(n_loc = n_distinct(locatie),
+    id_new = str_c(visit_id, "_", rank(locatie))) %>%
+  ungroup() %>%
+  mutate(id_new = ifelse(n_loc == 1, visit_id, id_new))
+
+aantallen_puntlocaties_extra <- aantallen_puntlocaties_extra %>%
+  left_join(visit_id_new, by = c("visit_id", "locatie")) %>%
+  mutate(visit_id_orig = visit_id,
+         visit_id = id_new) %>%
+  select(-id_new, -n_loc) %>%
+  rename(geom = geometry)
+
+aantallen_puntlocaties_selectie <- aantallen_puntlocaties_selectie %>%
+  mutate(visit_id = as.character(visit_id)) %>%
+  bind_rows(aantallen_puntlocaties_extra)
+```
 
 ## Verschillende bezoeken per jaar aan eenzelfde meetnetlocatie
 
@@ -197,6 +264,9 @@ Het kan dan gaan om:
 Bij de verdere analyse is het belangrijk om beide situaties te onderscheiden. 
 
 ```{r}
+
+bezoeken <- bezoeken %>%
+  mutate(visit_id = as.character(visit_id))
 
 aantallen_puntlocaties_selectie <- aantallen_puntlocaties_selectie %>%
   left_join(select(bezoeken, visit_id, user_id, opmerking_bezoek = opmerking))
@@ -258,7 +328,7 @@ p <- ggplot(data = meetnetlocatie, aes(geometry = geom)) +
 ggsave(p, filename = str_c("../output/",meetnet_select, "_", locatie_select, ".png"))
 ```
 
-```{r, eval=TRUE}
+```{r, eval=FALSE}
 
 dubbele_puntlocaties <- dubbele_puntlocaties %>%
   mutate(visit= str_c("visit_id = ", visit_id),
@@ -346,7 +416,7 @@ analyseset <- analyseset_cover %>%
   arrange(meetnet, visit_id)
 
 st_write(analyseset, dsn = "../data/plantenmeetnetten.gpkg", layer = "analyseset", delete_layer = TRUE)
-
+st_write(aantallen_puntlocaties_extra, dsn = "../data/plantenmeetnetten.gpkg", layer = "bezoeken_extra", delete_layer = TRUE)
 ```
 
 ```{r}

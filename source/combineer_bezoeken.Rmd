@@ -208,7 +208,7 @@ check_total_year %>%
 ```{r}
 analyseset_combine_visits %>%
   filter(selected) %>%
-  st_write("../data/plantenmeetnetten.gpkg", "analyseset_preprocessed")
+  st_write("../data/plantenmeetnetten.gpkg", "analyseset_preprocessed", delete_layer = TRUE)
 ```
 
 

@@ -15,7 +15,7 @@ meetnet_characteristics <- get_characteristics_smp(species_group = "planten") %>
 In een meetnet tellen vrijwilligers specifieke soorten op vastgelegde locaties via een gestandaardiseerde telmethode.
 Een dergelijke gestructureerde monitoring biedt de beste garantie op betrouwbare informatie over de toestand en trends van soorten op schaal Vlaanderen.
 Het ontwerp van de vaatplantenmeetnetten wordt in detail beschreven in het monitoringsprotocol vaatplanten [@van_landuyt_monitoringsprotocol_2019].
-Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@van_landuyt_monitoringsprotocol_2019].
+Dit is een tweede versie van het monitoringsprotocol waarin enkele aanpassingen zijn gebeurd ten opzichte van de eerste versie [@van_landuyt_monitoringsprotocol_2015].
 Het monitoringsprotocol is gebaseerd op de blauwdruk voor soortenmonitoring [@de_knijf_monitoring_2014].
 
 We vatten de belangrijkste onderdelen van de vaatplantenmeetnetten nog eens kort samen.
@@ -31,6 +31,8 @@ Voor twee groepen van soorten streven we naar een monitoring op basis van meetne
 In Tabel \@ref(tab:tabsoorten) tonen we de geselecteerde vaatplanten en de beleidsrelevantie van de soorten.
 Voor de drie Europees prioritaire soorten gebeurt de monitoring door het INBO.
 Alle Vlaams prioritaire soorten worden door vrijwilligers geteld.
+Bleekgeel blaasjeskruid is enkel opgenomen in de eerste versie van het monitoringsprotocol [@van_landuyt_monitoringsprotocol_2015], maar bleek na verder onderzoek niet meer aanwezig te zijn in Vlaanderen en is daarom geschrapt in de tweede versie van het monitoringsprotocol [@van_landuyt_monitoringsprotocol_2015].
+
 In dit rapport bespreken we enkel de resultaten van de vrijwilligersmeetnetten.
 (*of toch ook resutaten van de INBO-meetnetten toevoegen??*) Voor de resultaten van de INBO-meetnetten verwijzen we naar ... (*output?*).
 
@@ -46,6 +48,7 @@ meetnet_characteristics %>%
   left_join(names_sc, by = "soort_nl") %>%
   bind_rows(meetnet_prof) %>%
   arrange(soort_nl) %>%
+  mutate(soort_nl = ifelse(soort_nl == "Bleekgeel blaasjeskruid", str_c(soort_nl, footnote_marker_number(1)), soort_nl)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, Meetnet  = type_meetnet) %>%
     unique() %>%
   kable(caption = "Overzicht van de vaatplanten waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
@@ -54,7 +57,8 @@ meetnet_characteristics %>%
         align = c("l", "l", "c", "c"),
       row.names = FALSE) %>%
   kable_styling() %>%
-  column_spec(2, italic = TRUE) 
+  column_spec(2, italic = TRUE) %>%
+  footnote(number = "Soort komt niet meer voor in Vlaanderen")
 
 ```
 
@@ -106,15 +110,16 @@ meetnet_telperiode_table <- meetnet_characteristics %>%
   select(Meetnet = soort_nl, Populatieschatting =  protocol, Telperiode = telperiode, "Aantal locaties" = n_locaties)
 
  meetnet_telperiode_table %>%
+   filter(Meetnet != "Bleekgeel blaasjeskruid") %>%
   kable(caption = "Overzicht van de karakteristieken van de vaatplantenmeetnetten",
         booktabs = TRUE,) %>%
   kable_styling()
 
 ```
 
+```{r, message=FALSE, warning=FALSE, eval = FALSE}
 ## Ingezamelde telgegevens
 
-```{r, message=FALSE, warning=FALSE}
 monitoring_effort_meetnet <- calculate_monitoring_effort(species_group = "planten",
                                                  aggregation_level = "meetnet")
 
@@ -131,12 +136,8 @@ monitoring_effort <- monitoring_effort_meetnet %>%
 
 ```
 
-Tellers voeren de telgegevens in via het web portaal [meetnetten.be](https://www.meetnetten.be/) of via de mobiele [meetnetten-app](https://play.google.com/store/apps/details?id=nl.zostera.meetnetten&hl=nl).
-Sinds de start van de meetnetten in 2016 hebben `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellers", "aantal"]` tellers `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellingen", "aantal"]` tellingen op `r monitoring_effort_overall[monitoring_effort_overall$monitoringsinspanning == "aantal tellocaties", "aantal"]` meetnetlocaties ingevoerd.
-In Figuur \@ref(fig:figinspanning) zien we de trend van de tellingen in de tijd voor alle vaatplantmeetnetten samen.
-
-```{r figinspanning,  fig.cap = "Monitoringinspanning voor alle vaatplantmeetnetten samen", warning=TRUE}
-
+```{r figinspanning,  fig.cap = "Monitoringinspanning voor alle vaatplantmeetnetten samen", warning=TRUE, eval = FALSE}
+## Ingezamelde telgegevens
 plot1 <- monitoring_effort_soortgroep %>%
   filter(jaar > 2015, jaar <= 2022) %>%
   ggplot(aes(x = jaar, y = aantal, colour = monitoringsinspanning)) +

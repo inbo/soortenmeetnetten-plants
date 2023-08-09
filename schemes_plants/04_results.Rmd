@@ -1,16 +1,14 @@
 # Overzicht van de resultaten
 
-## Groeiplaatsen per meetcyclus
+```{r, eval = html_output, results = 'asis'}
 
-*Eventueel data nog vervagen*
+cat("\n\n## Groeiplaatsen per meetcyclus \n")
 
-Onderstaande kaart geeft een overzicht van alle tellingen uitgevoerd in kader van de vaatplantenmeetnetten (na preprocessing).
-De bijhorende figuur geeft de distributie van de Floroncodes weer voor de twee afgewerkte meetcycli.
+cat("Onderstaande kaart geeft een overzicht van alle tellingen uitgevoerd in kader van de vaatplantenmeetnetten (na preprocessing). De bijhorende figuur geeft de distributie van de Floroncodes weer voor de twee afgewerkte meetcycli. De filters laten toe om een soort en een meetcyclus te selecteren. Je kan ook kiezen om al dan niet nulwaarnemingen te visualiseren.")
+```
 
-De filters laten toe om een soort en een meetcyclus te selecteren.
-Je kan ook kiezen om al dan niet nulwaarnemingen te visualiseren.
+```{r, eval = html_output}
 
-```{r}
 radius_show <- tibble(code = c("0","A", "B", "C", "D", "E","F","G"),
                       radius = c(1,3,4,5,6,7,9,11) + 2)
 
@@ -36,20 +34,19 @@ bscols(widths = c(6, 6),
   plot_ly(sd, x = ~code, color = ~periode, colors = c("#282A72", "#EF972C")) %>%
     add_histogram()
 )
+
+```
+
+```{r, eval = html_output, results = 'asis'}
+
+cat("\n\n")
+
+
 ```
 
 ## Totale populatiegrootte voor Vlaanderen per meetcyclus
 
 ```{r}
-
-total_meetnet_cyclus <- total_cyclus %>%
-  group_by(meetnet, periode, variable, protocol, cyclus) %>%
-  summarise(tot_mean = sum(tot_mean),
-            tot_max = sum(tot_max),
-            tot_min = sum(tot_min)) %>%
-  ungroup() %>%
-  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig")) %>%
-  filter(cyclus %in% c(1,2))
 
 verschil_meetnet <- total_meetnet_cyclus %>%
   select(-periode, -voorkomen) %>%
@@ -68,15 +65,46 @@ order_trend <- (verschil_meetnet %>%
 
 Tabel \@ref(tab:tabresultaat) toont de totale populatiegrootte per meetcyclus voor de Vlaams prioritaire soorten.
 De tabel toont ook de relatieve verschillen tussen de meetcycli.
-Deze verschillen tonen we ook in Figuur \@ref(fig:figresultaat).
 
 ```{r tabresultaat}
 verschil_meetnet %>%
   mutate(verschil_show = str_c( ifelse(verschil_percent > 0, "+", ""), round(verschil_percent), " %")) %>%
   select(soort = meetnet, variabele = variable, "2016 - 2018" = tot_mean_1, "2019 - 2021" = tot_mean_2, "relatief verschil" = verschil_show) %>%
-  kable(caption = "Totale populatiegrootte van de Vlaams prioritaire vaatplanten per meetcyclus en reltief verschil tussen de meetcycli") %>%
+  kable(caption = "Totale populatiegrootte van de Vlaams prioritaire vaatplanten per meetcyclus en reltief verschil tussen de meetcycli",
+        booktabs = TRUE) %>%
   kable_styling()
   
+```
+
+De relatieve verschillen tonen we ook in Figuur \@ref(fig:figresultaat).
+We baseren ons op het classificatiesysteem van @onkelinx_2023 om de relatieve verschillen in te delen in klassen, zoals weergegeven in Tabel \@ref(tab:tabklas).
+
+```{r }
+
+if (html_output) {
+  
+  tab_class <- tibble(Code = c("`++`", "`+~`", "`~`", "`-~`", "`--`"),
+                    Klasse = c("sterke toename", "matige toename", "stabiel", "matige afname", "sterke afname"),
+                    Beschrijving = c("verschil > 24%", "0% < verschil <= 24%", "verschil = 0%",  "-33% <= verschil < 0%", "verschil < -33%"))
+  
+} else {
+  
+  tab_class <- tibble(
+                    Code = c("$++$", "$+\\sim$", "$\\sim$", "$-\\sim$", "$--$"),
+                    Klasse = c("sterke toename", "matige toename", "stabiel", "matige afname", "sterke afname"),
+                    Beschrijving = c("verschil groter dan 24\\%", "verschil groter dan 0\\% en kleiner dan 24\\%", "verschil gelijk aan 0\\%",  "verschil groter dan -33\\% en kleiner dan 0\\%", "verschil kleiner dan -33\\%"))
+  
+}
+
+```
+
+```{r tabklas}
+tab_class %>%
+  kable(caption = "Classificatie van de verschillen",
+        booktabs = TRUE,
+        escape = FALSE) %>%
+  kable_styling()
+
 ```
 
 ```{r figresultaat, fig.height = 7, fig.width = 10,  fig.cap = "Relatief verschil in totale populatiegrootte tussen de periodes 2016 - 2018 en 2019 - 2021"}
@@ -111,7 +139,7 @@ locatie_point <- locaties %>%
 
 locatie_point_1_2 <- locatie_point %>%
   rename(geometry = geom) %>%
-  filter(cyclus <= 2)
+  filter(cyclus %in% c(1, 2))
 
 ```
 
@@ -167,7 +195,8 @@ for (soort in unique(total_year_long$meetnet)) {
      # labs(title = str_c(soort, " - ", i)) +
       facet_grid(variable ~ locatie, scales = "free_y") +
       theme(axis.text.x = element_text(angle = 90),
-            axis.title.y = element_blank())
+            axis.title.y = element_blank()) +
+      scale_y_log10()
 
     plot(p)
 
@@ -177,12 +206,30 @@ for (soort in unique(total_year_long$meetnet)) {
 
 # Resultaten per meetnet: totalen per meetcyclus
 
+Voor elk meetnet gaan we dieper in op de resultaten aan de hand van vier figuren:
+
+-   Een histogram met de verdeling van de Floron-klassen van de groeiplaatsen per meetcyclus
+
+-   Een kaart met de populatiegroottes voor elke meetnetlocatie per meetcyclus, waarbij nulwaarnemingen met een X worden aangeduid
+
+-   Een grafiek met de populatiegroottes voor elke meetnetlocatie per meetcyclus, waarbij tellingen voor eenzelfde locatie verbonden zijn met een stippellijn
+
+-   Een grafiek met de totale populatiegrootte voor Vlaanderen per meetcyclus
+
 ```{r, results = 'asis'}
 
 for (soort in unique(total_year_long$meetnet)) {
   
-  locatie_point_meetnet <- locatie_point_1_2 %>%
+  locatie_point_meetnet_aanwezig <- locatie_point_1_2 %>%
+    filter(meetnet == soort) %>%
+    filter(tot_mean > 0)
+  
+   locatie_point_meetnet <- locatie_point_1_2 %>%
     filter(meetnet == soort) 
+   
+  locatie_point_meetnet_afwezig <- locatie_point_1_2 %>%
+    filter(meetnet == soort) %>%
+    filter(tot_mean == 0)
   
   variable_select <- total_cyclus %>%
     filter(meetnet == soort) %>%
@@ -194,52 +241,51 @@ for (soort in unique(total_year_long$meetnet)) {
   cat(str_c("\n\n## ", soort, " \n"))
   
   p1 <- ggplot() +
-    geom_sf(data = locatie_point_meetnet, aes(size = tot_mean,  colour = voorkomen), alpha = 0.7) +
+    geom_sf(data = locatie_point_meetnet_aanwezig, aes(size = tot_mean), alpha = 0.7, colour = "green",) +
+    geom_sf(data = locatie_point_meetnet_afwezig,   alpha = 0.7, aes(shape = voorkomen), shape = 4, colour = "black",  size = 3) +
     geom_sf(data = vlaanderen, alpha = 0.2, colour = "grey") +
-   # scale_shape_manual(values = c( 19, 4)) +
-    scale_colour_manual(values = c( "aanwezig" = "#282A72", "afwezig" = "black")) +
     facet_wrap(~periode, ncol = 1) +
-    theme_void() +
-    labs(size = variable_select$variable)
+    labs(size = variable_select$variable) + 
+    theme_void()
   
-
+  
   p2 <- total_cyclus %>%
     filter(meetnet == soort) %>%
-    filter(cyclus <= 2) %>%
+    filter(cyclus %in% c(1, 2)) %>%
     ggplot(aes(x = periode, y = tot_mean, group = locatie, colour = voorkomen)) +
     geom_point(alpha = 0.7, size = 3) +
     geom_line(linetype = 2, alpha = 0.8, colour = "grey") +
     labs(y = str_c(variable_select$variable, " per locatie")) +
-    scale_colour_manual(values = c( "aanwezig" = "#282A72", "afwezig" = "black")) +
-    theme(legend.position = "bottom") +
-    theme(legend.position = "hide")
-  
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
+    theme(legend.position = "hide") +
+    scale_y_log10()
   
   p3 <- total_meetnet_cyclus %>%
     filter((meetnet == soort)) %>%
-    filter(cyclus <= 2) %>%
-    filter(cyclus >= 1) %>%
+    filter(cyclus %in% c(1, 2)) %>%
     ggplot(aes(x = periode, y = tot_mean, ymin = tot_min, ymax = tot_max, colour = voorkomen)) +
     geom_point(size = 3) +
     #geom_errorbar(width = 0, size = 7, alpha = 0.3) +
-    labs(y = str_c(variable_select$variable, " per meetnet")) +
-    scale_colour_manual(values = c( "aanwezig" = "#282A72", "afwezig" = "black")) +
-    theme(legend.position = "hide")
+    labs(y = str_c(variable_select$variable, " Vlaanderen")) +
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
+    theme(legend.position = "hide") +
+    scale_y_log10()
   
   p4 <- analyseset_cyclus %>%
     filter(meetnet == soort) %>%
-    filter(cyclus <= 2) %>%
+    filter(cyclus %in% c(1, 2)) %>%
     ggplot(aes(x = code, fill = periode)) +
     geom_bar(position = "dodge", ) +
-    labs(x = str_c("Floron code - ", variable_select2), y = "Aantal punten") +                     
-    scale_x_discrete(drop = FALSE)
+    labs(x = str_c("Floron code - ", variable_select2), y = "Aantal punten") +
+    scale_x_discrete(drop = FALSE) +
+    scale_fill_discrete(drop = FALSE)
   
   plot(p4)
   
   plot(p1)
   
   grid.arrange(p2, p3, ncol = 2)
-  
+
 }
 
 ```
