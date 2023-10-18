@@ -143,7 +143,7 @@ locatie_point_1_2 <- locatie_point %>%
 
 ```
 
-```{r}
+```{r, eval = FALSE}
 vlaanderen <- giscoR::gisco_get_nuts(country = "Belgium", nuts_level = "2", resolution = "01") %>%
   filter(NUTS_NAME %in% c("Prov. Antwerpen",
                           "Prov. Oost-Vlaanderen",
@@ -151,6 +151,11 @@ vlaanderen <- giscoR::gisco_get_nuts(country = "Belgium", nuts_level = "2", reso
                           "Prov. Vlaams-Brabant",
                           "Prov. Limburg (BE)")) %>%
   st_transform(crs = 31370)
+
+```
+
+```{r, eval = TRUE}
+vlaanderen <- read_admin_areas(dsn = "provinces")
 
 ```
 

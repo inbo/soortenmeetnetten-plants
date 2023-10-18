@@ -1,4 +1,4 @@
-book_filename: "westra_et_al_trvdpiv.Rmd"
+book_filename: "rapport_plantenmeetnetten.Rmd"
 output_dir: "../output/schemes_plants"
 delete_merged_file: TRUE
 language:

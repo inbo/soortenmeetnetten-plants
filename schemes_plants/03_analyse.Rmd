@@ -65,10 +65,13 @@ Voor meetlocaties die in meerdere jaren binnen dezelfde cyclus werden geteld, st
 total_cyclus <- total_year %>%
   group_by(meetnet, protocol, locatie, cyclus) %>%
   filter(tot_mean == max(tot_mean)) %>%
+  filter(jaar == max(jaar)) %>%
   ungroup() %>%
   mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
   group_by(meetnet, locatie) %>%
-  mutate(cyclus_1_2 = 1 %in% cyclus & 2 %in% cyclus)
+  mutate(cyclus_1_2 = 1 %in% cyclus & 2 %in% cyclus) %>%
+  filter(any(cyclus %in% c(1,2))) %>%
+  ungroup()
 
 check_missing_cyclus <- total_cyclus %>%
   filter(!cyclus_1_2) %>%
@@ -110,6 +113,13 @@ analyseset_cyclus <- analyseset_preprocessed %>%
   arrange(jaar) %>%
   filter(cyclus %in% c(1,2)) %>%
   mutate(periode = factor(periode))
+
+check_1recordpercyclus <- total_cyclus %>%
+  group_by(meetnet, locatie, cyclus) %>%
+  filter(n() > 1)
+
+write_csv2(total_cyclus, "../output/plantenmeetnetnetten_total_cyclus.csv")
+write_csv2(total_year, "../output/plantenmeetnetnetten_total_year.csv")
 ```
 
 #### Bijpassen van ontbrekende tellingen
