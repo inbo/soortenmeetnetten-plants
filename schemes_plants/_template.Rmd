@@ -1,0 +1,85 @@
+## {{i}}
+
+```{r, echo=FALSE, results='asis'}
+
+filename <- "{{i}}" %>%
+  str_replace(" ", "_") %>%
+  str_to_lower()
+
+filename <- str_c("_text_", filename, ".rmd")
+
+if (file.exists(filename)) {
+  
+  res <- knitr::knit_child(filename, quiet = TRUE)
+  cat(res, sep = '\n')
+  
+}
+
+```
+
+```{r}
+locatie_point_meetnet_aanwezig <- locatie_point_1_2 %>%
+    filter(meetnet == "{{i}}") %>%
+    filter(tot_mean > 0)
+  
+   locatie_point_meetnet <- locatie_point_1_2 %>%
+    filter(meetnet == "{{i}}") 
+   
+  locatie_point_meetnet_afwezig <- locatie_point_1_2 %>%
+    filter(meetnet == "{{i}}") %>%
+    filter(tot_mean == 0)
+  
+  variable_select <- total_cyclus %>%
+    filter(meetnet == "{{i}}") %>%
+    select(variable) %>%
+    unique()
+  
+   variable_select2 <- str_remove(variable_select$variable, "totaal ")
+```
+
+```{r, fig.cap = "Floroncodes per vegetatievlek voor de{{i}}}"}
+analyseset_cyclus %>%
+    filter(meetnet == "{{i}}") %>%
+    filter(cyclus %in% c(1, 2)) %>%
+    ggplot(aes(x = code, fill = periode)) +
+    geom_bar(position = "dodge", ) +
+    labs(x = str_c("Floron code - ", variable_select2), y = "Aantal punten") +
+    scale_x_discrete(drop = FALSE) +
+    scale_fill_discrete(drop = FALSE)
+```
+
+```{r,fig.cap = "Kaart {{i}}"}
+ggplot() +
+    geom_sf(data = locatie_point_meetnet_aanwezig, aes(size = tot_mean), alpha = 0.7, colour = "green",) +
+    geom_sf(data = locatie_point_meetnet_afwezig,   alpha = 0.7, aes(shape = voorkomen), shape = 4, colour = "black",  size = 3) +
+    geom_sf(data = vlaanderen, alpha = 0.2, colour = "grey") +
+    facet_wrap(~periode, ncol = 1) +
+    labs(size = variable_select$variable) + 
+    theme_void()
+```
+
+```{r, fig.cap = "Kaart {{i}}"}
+ p1 <- total_cyclus %>%
+    filter(meetnet == "{{i}}") %>%
+    filter(cyclus %in% c(1, 2)) %>%
+    ggplot(aes(x = periode, y = tot_mean, group = locatie, colour = voorkomen)) +
+    geom_point(alpha = 0.7, size = 3) +
+    geom_line(linetype = 2, alpha = 0.8, colour = "grey") +
+    labs(y = str_c(variable_select$variable, " per locatie")) +
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
+    theme(legend.position = "hide") +
+    scale_y_log10()
+  
+p2 <- total_meetnet_cyclus %>%
+    filter((meetnet == "{{i}}")) %>%
+    filter(cyclus %in% c(1, 2)) %>%
+    ggplot(aes(x = periode, y = tot_mean, ymin = tot_min, ymax = tot_max, colour = voorkomen)) +
+    geom_point(size = 3) +
+    #geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+    labs(y = str_c(variable_select$variable, " Vlaanderen")) +
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
+    theme(legend.position = "hide") +
+    scale_y_log10()
+  
+grid.arrange(p1, p2, ncol = 2)
+```

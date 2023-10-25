@@ -126,8 +126,6 @@ verschil_meetnet %>%
   theme(legend.position = "hide", axis.text.x = element_text(angle = 90))
 ```
 
-# Resultaten per meetnet: totalen per jaar
-
 ```{r}
 
 locaties <- read_sf("../data/plantenmeetnetten.gpkg", "locaties")
@@ -159,8 +157,6 @@ vlaanderen <- read_admin_areas(dsn = "provinces")
 
 ```
 
-*Niet in eindrapport*
-
 ```{r}
 
 total_year_long <- total_year %>%
@@ -181,7 +177,7 @@ total_year_long <- total_year_long %>%
                            "totaal punten"))
 ```
 
-```{r, fig.width = 10, fig.height= 4, results = 'asis'}
+```{r eval = FALSE, fig.width = 10, fig.height= 4, results = 'asis'}
 for (soort in unique(total_year_long$meetnet)) {
   
   total_year_soort <- total_year_long %>%
@@ -284,6 +280,8 @@ for (soort in unique(total_year_long$meetnet)) {
     labs(x = str_c("Floron code - ", variable_select2), y = "Aantal punten") +
     scale_x_discrete(drop = FALSE) +
     scale_fill_discrete(drop = FALSE)
+  
+  
   
   plot(p4)
   
