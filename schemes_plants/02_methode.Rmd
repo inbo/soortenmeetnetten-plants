@@ -34,7 +34,7 @@ Alle Vlaams prioritaire soorten worden door vrijwilligers geteld.
 Bleekgeel blaasjeskruid is enkel opgenomen in de eerste versie van het monitoringsprotocol [@van_landuyt_monitoringsprotocol_2015], maar bleek na verder onderzoek niet meer aanwezig te zijn in Vlaanderen en is daarom geschrapt in de tweede versie van het monitoringsprotocol [@van_landuyt_monitoringsprotocol_2015].
 
 In dit rapport bespreken we enkel de resultaten van de vrijwilligersmeetnetten.
-(*of toch ook resutaten van de INBO-meetnetten toevoegen??*) Voor de resultaten van de INBO-meetnetten verwijzen we naar ... (*output?*).
+Voor de resultaten van kruipend moerasscherm verwijzen we naar [@van_landuyt_2022].
 
 ```{r tabsoorten}
 

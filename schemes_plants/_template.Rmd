@@ -1,16 +1,33 @@
-## {{i}}
+### {{i}}
 
-```{r, echo=FALSE, results='asis'}
+```{r}
 
-filename <- "{{i}}" %>%
+meetnet_name <- "{{i}}" %>%
   str_replace(" ", "_") %>%
   str_to_lower()
 
-filename <- str_c("_text_", filename, ".rmd")
+filename_photo <- (image_list %>%
+  filter(meetnet == meetnet_name))$file_name
 
-if (file.exists(filename)) {
+source_photo <- (image_list %>%
+  filter(meetnet == meetnet_name))$bron
+
+filename_text <- str_c("_text_", meetnet_name, ".rmd")
+
+showphoto <- file.exists(file.path("image", filename_photo))
+```
+
+```{r eval = showphoto, fig.cap = str_c("{{i}} (foto: ", source_photo, ")"), out.width = "40%"}
+
+include_graphics(file.path("image", filename_photo))
+
+```
+
+```{r echo=FALSE, results='asis'}
+
+if (file.exists(filename_text)) {
   
-  res <- knitr::knit_child(filename, quiet = TRUE)
+  res <- knitr::knit_child(filename_text, quiet = TRUE)
   cat(res, sep = '\n')
   
 }
@@ -37,7 +54,7 @@ locatie_point_meetnet_aanwezig <- locatie_point_1_2 %>%
    variable_select2 <- str_remove(variable_select$variable, "totaal ")
 ```
 
-```{r, fig.cap = "Floroncodes per vegetatievlek voor de{{i}}}"}
+```{r, fig.cap = "Floroncodes per vegetatievlek voor {{i}}"}
 analyseset_cyclus %>%
     filter(meetnet == "{{i}}") %>%
     filter(cyclus %in% c(1, 2)) %>%
@@ -48,38 +65,104 @@ analyseset_cyclus %>%
     scale_fill_discrete(drop = FALSE)
 ```
 
-```{r,fig.cap = "Kaart {{i}}"}
+```{r}
+data_locatie <- total_cyclus %>%
+    filter(meetnet == "{{i}}") %>%
+    filter(cyclus %in% c(1, 2))
+
+data_meetnet <- total_meetnet_cyclus %>%
+    filter((meetnet == "{{i}}")) %>%
+    filter(cyclus %in% c(1, 2))
+
+data_lim <- tibble(data_max = c(max(data_locatie$tot_mean), max(data_meetnet$tot_max)),
+                   data_type = c("locatie", "meetnet")) %>%
+  mutate(lim_max = ifelse(data_max <= 10, 10,
+                          ifelse(data_max <= 100, 100,
+                                 ifelse(data_max <= 1000, 1000,
+                                        ifelse(data_max <= 10000, 10000,
+                                               ifelse(data_max <= 100000, 100000, 1000000))))))
+
+```
+
+```{r,fig.cap = "Kaart met totale populatiegrootte van {{i}} per locatie voor de periode 2016-2018 en 2019-2021"}
+
 ggplot() +
-    geom_sf(data = locatie_point_meetnet_aanwezig, aes(size = tot_mean), alpha = 0.7, colour = "green",) +
-    geom_sf(data = locatie_point_meetnet_afwezig,   alpha = 0.7, aes(shape = voorkomen), shape = 4, colour = "black",  size = 3) +
+    geom_sf(data = locatie_point_meetnet_aanwezig, aes(size = tot_mean), alpha = 0.5, colour = "green",) +
+    geom_sf(data = locatie_point_meetnet_afwezig,   alpha = 0.5, aes(shape = voorkomen), shape = 4, colour = "black",  size = 3) +
     geom_sf(data = vlaanderen, alpha = 0.2, colour = "grey") +
     facet_wrap(~periode, ncol = 1) +
     labs(size = variable_select$variable) + 
     theme_void()
 ```
 
-```{r, fig.cap = "Kaart {{i}}"}
- p1 <- total_cyclus %>%
-    filter(meetnet == "{{i}}") %>%
+```{r, eval = FALSE}
+data_locatie <- total_cyclus %>%
+    filter(meetnet == "Kleine wolfsklauw") %>%
+    filter(cyclus %in% c(1, 2))
+
+data_meetnet <- total_meetnet_cyclus %>%
+    filter((meetnet == "Kleine wolfsklauw")) %>%
+    filter(cyclus %in% c(1, 2))
+
+data_lim <- tibble(data_max = c(max(data_locatie$tot_mean), max(data_meetnet$tot_max)),
+                   data_type = c("locatie", "meetnet")) %>%
+  mutate(lim_max = ifelse(data_max <= 10, 10,
+                          ifelse(data_max <= 100, 100,
+                                 ifelse(data_max <= 1000, 1000,
+                                        ifelse(data_max <= 10000, 10000,
+                                               ifelse(data_max <= 100000, 100000, 1000000))))))
+  
+plot_max <- (data_lim %>%
+  filter(data_type == "locatie"))$lim_max
+
+data_locatie %>%
+    ggplot(aes(x = periode, y = tot_mean, group = locatie, colour = voorkomen)) +
+    geom_point(alpha = 0.7, size = 3) +
+    geom_line(linetype = 2, alpha = 0.8, colour = "grey") +
+   # labs(y = str_c(variable_select$variable, " per locatie")) +
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
+    theme(legend.position = "hide") +
+    scale_y_log10(limits = c(0.1, plot_max), breaks = c(1, 10, 100, 1000, 10000, 100000), labels = c("1", "10", "100", "1000", "10000", "100000"))
+
+plot_max <- (data_lim %>%
+  filter(data_type == "meetnet"))$lim_max
+
+data_meetnet %>%
     filter(cyclus %in% c(1, 2)) %>%
+    ggplot(aes(x = periode, y = tot_mean, ymin = tot_min, ymax = tot_max, colour = voorkomen)) +
+    geom_point(size = 3) +
+    geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+    #labs(y = str_c(variable_select$variable, " Vlaanderen")) +
+    scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
+    theme(legend.position = "hide") +
+    scale_y_log10(limits = c(0.1, plot_max), breaks = c(1, 10, 100, 1000, 10000, 100000), labels = c("1", "10", "100", "1000", "10000", "100000"))
+```
+
+```{r, fig.cap = "Links: totale populatiegrootte van {{i}} per locatie; rechts totaal geschatte populatiegrootte van {{i}} voor Vlaanderen"}
+ 
+p1_max <- (data_lim %>%
+  filter(data_type == "locatie"))$lim_max
+
+p2_max <- (data_lim %>%
+  filter(data_type == "meetnet"))$lim_max
+
+p1 <- data_locatie %>%
     ggplot(aes(x = periode, y = tot_mean, group = locatie, colour = voorkomen)) +
     geom_point(alpha = 0.7, size = 3) +
     geom_line(linetype = 2, alpha = 0.8, colour = "grey") +
     labs(y = str_c(variable_select$variable, " per locatie")) +
     scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
     theme(legend.position = "hide") +
-    scale_y_log10()
+    scale_y_log10(limits = c(0.1, p1_max), breaks = c(1, 10, 100, 1000, 10000, 100000), labels = c("1", "10", "100", "1000", "10000", "100000"))
   
-p2 <- total_meetnet_cyclus %>%
-    filter((meetnet == "{{i}}")) %>%
-    filter(cyclus %in% c(1, 2)) %>%
+p2 <- data_meetnet %>%
     ggplot(aes(x = periode, y = tot_mean, ymin = tot_min, ymax = tot_max, colour = voorkomen)) +
     geom_point(size = 3) +
-    #geom_errorbar(width = 0, size = 7, alpha = 0.3) +
+    geom_errorbar(width = 0, size = 7, alpha = 0.3) +
     labs(y = str_c(variable_select$variable, " Vlaanderen")) +
     scale_colour_manual(values = c( "aanwezig" = "green", "afwezig" = "black")) +
     theme(legend.position = "hide") +
-    scale_y_log10()
+    scale_y_log10(limits = c(0.1, p2_max), breaks = c(1, 10, 100, 1000, 10000, 100000), labels = c("1", "10", "100", "1000", "10000", "100000"))
   
 grid.arrange(p1, p2, ncol = 2)
 ```

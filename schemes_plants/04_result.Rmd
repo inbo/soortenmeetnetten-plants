@@ -50,48 +50,69 @@ cat("\n\n")
 verschil_meetnet <- total_meetnet_cyclus %>%
   select(-periode, -voorkomen) %>%
   pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "tot_min", "tot_max")) %>%
-  mutate(verschil_rel = (tot_mean_2 - tot_mean_1) / tot_mean_1,
+  mutate(mean_1_show = str_c(tot_mean_1, " [", tot_min_1, "-", tot_max_1, "]"),
+         mean_2_show = str_c(tot_mean_2, " [", tot_min_2, "-", tot_max_2, "]"),
+         verschil_rel = (tot_mean_2 - tot_mean_1) / tot_mean_1,
          verschil_percent = verschil_rel * 100,
          verschil_rel_log = log(1 + verschil_rel) + 1,
-         klasse = ifelse(verschil_rel < -0.25, "--",
+         overlap = ifelse(tot_mean_2 > tot_mean_1, pmax(0, tot_max_1 - tot_min_2), pmax(0, tot_max_2 - tot_min_1)),
+         range = pmax(tot_max_1, tot_max_2) - pmin(tot_min_1, tot_min_2),
+         range_prop = ifelse(overlap > 0, round(overlap / range, 2), 0),
+         klasse_1 = ifelse(verschil_rel < -0.25, ifelse(range_prop < 0.10, "--", "-"),
                          ifelse(verschil_rel < -0.10, "-~",
-                                ifelse(verschil_rel < 0.10, "~",
-                                      ifelse(verschil_rel < 0.33, "+~", "++"))))) 
+                                ifelse(verschil_rel < 0.10 | range_prop  >= 0.75, "~",
+                                      ifelse(verschil_rel < 0.33, "+~", ifelse(range_prop < 0.10, "++", "+"))))),
+         klasse_2 = ifelse(range_prop >= 0.75, "~",
+                         ifelse(range_prop >= 0.50, ifelse(verschil_rel > 0, "+~", "-~"),
+                                ifelse(range_prop >= 0.15, ifelse(verschil_rel > 0, "+", "-"), ifelse(verschil_rel > 0, "++", "--")))),
+         variable = ifelse(variable == "totaal aantal", "aantal", "opp (m²)"))
 
 order_trend <- (verschil_meetnet %>%
   arrange(verschil_rel))$meetnet
 ```
 
-Tabel \@ref(tab:tabresultaat) toont de totale populatiegrootte per meetcyclus voor de Vlaams prioritaire soorten.
-De tabel toont ook de relatieve verschillen tussen de meetcycli.
+Tabel \@ref(tab:tabresultaat) toont de totale populatiegrootte en de range tussen de minimale en maximale populatiegrootte per meetcyclus voor de Vlaams prioritaire soorten.
+De tabel toont ook de relatieve verschillen tussen de meetcycli en de mate waarin de range tussen de minimale en maximale populatiegrootte overlappen voor beide meetcycli.
 
 ```{r tabresultaat}
+
 verschil_meetnet %>%
-  mutate(verschil_show = str_c( ifelse(verschil_percent > 0, "+", ""), round(verschil_percent), " %")) %>%
-  select(soort = meetnet, variabele = variable, "2016 - 2018" = tot_mean_1, "2019 - 2021" = tot_mean_2, "relatief verschil" = verschil_show) %>%
+  mutate(verschil_show = str_c( ifelse(verschil_percent > 0, "+", ""), round(verschil_percent), " %"),
+         range_prop_show =  str_c(100 * range_prop, " %")) %>%
+  select(Soort = meetnet, Variabele = variable, "2016 - 2018" = mean_1_show, "2019 - 2021" = mean_2_show, "Relatief verschil" = verschil_show, "Overlap range" = range_prop_show) %>%
   kable(caption = "Totale populatiegrootte van de Vlaams prioritaire vaatplanten per meetcyclus en reltief verschil tussen de meetcycli",
         booktabs = TRUE) %>%
-  kable_styling()
+  kable_styling() %>%
+  column_spec(c(5,6), width = "1cm")
   
 ```
 
 De relatieve verschillen tonen we ook in Figuur \@ref(fig:figresultaat).
 We baseren ons op het classificatiesysteem van @onkelinx_2023 om de relatieve verschillen in te delen in klassen, zoals weergegeven in Tabel \@ref(tab:tabklas).
+Bij de classificatie houden we ook rekening met de overlapping van de range van de populatiegroottes voor beide meetnetcycli.
+Als deze overlapping groter is dan 75 % veronderstellen we dat de populatiegrootte stabiel blijft.
+Om van een sterke toename of afname te spreken, moet de overlapping steeds kleiner zijn dan 10 %.
+
+Belangrijk om op te merken is dat deze range in populatiegrootte niet als een betrouwbaarheidsinterval geïnterpreteerd mag worden.
+Een betrouwbaarheidsinterval is gebaseerd op de standaardfout bij een schatting op basis van een steekproef.
+De range in populatiegrootte die we hier verkrijgen is het gevolg van het werken met aantalsklassen en oppervlakteklassen.
 
 ```{r }
 
 if (html_output) {
   
-  tab_class <- tibble(Code = c("`++`", "`+~`", "`~`", "`-~`", "`--`"),
-                    Klasse = c("sterke toename", "matige toename", "stabiel", "matige afname", "sterke afname"),
-                    Beschrijving = c("verschil > 24%", "0% < verschil <= 24%", "verschil = 0%",  "-33% <= verschil < 0%", "verschil < -33%"))
+  tab_class <- tibble(Code = c("`++`", "`+`", "`+~`", "`~`", "`-~`", "`-`", "`--`"),
+                    Klasse = c("sterke toename", "toename", "matige toename", "stabiel", "matige afname", "afname", "sterke afname"),
+                    "Relatief Verschil" = c("verschil groter dan 24%", "verschil groter dan 24%", "verschil tussen 10% en 24%", "verschil tussen -10% en 10%", "verschil tussen -33% en -10%", "verschil kleiner dan -33%", "verschil kleiner dan -33%"),
+                    "Overlap range" = c("en overlap kleiner dan 10%", "en overlap tussen 10% en 75%", "en overlap tussen 10% en 75%","of overlap groter dan 75%", "en overlap tussen 10% en 75%", "en overlap tussen 10% en 75%", "en overlap kleiner dan 10%"))
   
 } else {
   
   tab_class <- tibble(
-                    Code = c("$++$", "$+\\sim$", "$\\sim$", "$-\\sim$", "$--$"),
-                    Klasse = c("sterke toename", "matige toename", "stabiel", "matige afname", "sterke afname"),
-                    Beschrijving = c("verschil groter dan 24\\%", "verschil groter dan 0\\% en kleiner dan 24\\%", "verschil gelijk aan 0\\%",  "verschil groter dan -33\\% en kleiner dan 0\\%", "verschil kleiner dan -33\\%"))
+                    Code = c("$++$", "$+$", "$+\\sim$", "$\\sim$", "$-\\sim$", "$-$", "$--$"),
+                    Klasse = c("sterke toename", "toename", "matige toename", "stabiel", "matige afname", "afname", "sterke afname"),
+                    "Relatief Verschil" = c("verschil groter dan 24\\%", "verschil groter dan 24\\%", "verschil tussen 10\\% en 24\\%", "verschil tussen -10\\% en 10\\%", "verschil tussen -33\\% en -10\\%", "verschil kleiner dan -33\\%", "verschil kleiner dan -33\\%"),
+                    "Overlap range" = c("en overlap kleiner dan 10\\%", "en overlap tussen 10\\% en 75\\%", "en overlap tussen 10\\% en 75\\%","of overlap groter dan 75\\%", "en overlap tussen 10\\% en 75\\%", "en overlap tussen 10\\% en 75\\%", "en overlap kleiner dan 10\\%"))
   
 }
 
@@ -106,22 +127,28 @@ tab_class %>%
 
 ```
 
-```{r figresultaat, fig.height = 7, fig.width = 10,  fig.cap = "Relatief verschil in totale populatiegrootte tussen de periodes 2016 - 2018 en 2019 - 2021"}
+```{r figresultaat, fig.height = 7, fig.width = 6,  fig.cap = "Relatief verschil in totale populatiegrootte tussen de periodes 2016 - 2018 en 2019 - 2021"}
+
+c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
+  setNames(
+    c("++", "+", "+~", "~", "-~", "-", "--", "?+", "?-", "?")
+  ) -> klasse_color
+klasse_color[4] <- inbo_steun_blauw
 
 breaks_log <- log(c(0, 0.05, 0.25, 0.5, 0.75, 1, 1.33, 2,  4, 11, 31)) + 1
 labels_show <- str_c(c(-100, -95, -75, -50, -25, 0, 33, 100, 300, 1000, 3000), " %")
 
 verschil_meetnet %>%
   mutate(meetnet = factor(meetnet, levels = order_trend)) %>%
-  ggplot(aes(x = verschil_rel_log, y = meetnet, label = klasse, colour = klasse)) +
+  ggplot(aes(x = verschil_rel_log, y = meetnet, label = klasse_1, colour = klasse_1)) +
   geom_vline(xintercept = 1, linetype = 2) +
   geom_vline(xintercept = log(0.75) + 1, linetype = 3) +
   geom_vline(xintercept = log(1.33) + 1, linetype = 3) +
-  geom_point(aes(colour = klasse), size = 5) +
+  geom_point(aes(colour = klasse_1), size = 5) +
   geom_text(size = 3, colour = "white") +
   labs(x = "Vreschil tussen periode 2019 - 2021 en periode 2016 - 2018", y = "Soort") +
   scale_x_continuous(breaks = breaks_log, labels = labels_show) +
-  # scale_color_manual(values = klasse_color) +
+  scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide", axis.text.x = element_text(angle = 90))
 ```
 
@@ -148,6 +175,9 @@ total_year_long <- total_year_long %>%
 ```{r, eval = TRUE}
 vlaanderen <- read_admin_areas(dsn = "provinces")
 
+vlaanderen <- vlaanderen %>%
+  st_simplify(dTolerance = 500)
+
 ```
 
 ```{r}
@@ -164,6 +194,26 @@ locatie_point_1_2 <- locatie_point %>%
   filter(cyclus %in% c(1, 2))
 
 ```
+
+```{r}
+meetnetten_name <- unique(total_year_long$meetnet) %>%
+  str_to_lower() %>%
+  str_replace(" ", "_") %>%
+  str_c(collapse = "|")
+
+image_list <- tibble(file_name = list.files("image")) %>%
+  mutate(file_name = str_to_lower(file_name))
+
+image_list <- image_list %>%
+  mutate(meetnet = str_extract(file_name, meetnetten_name),
+         bron = str_remove(file_name, meetnetten_name),
+         bron = str_remove(bron, ".jpg|.jpeg"),
+         bron = str_replace_all(bron, "_", " "),
+         bron = str_squish(str_to_title(bron)))
+  
+```
+
+## Resultaten per meetnet: totalen per meetcyclus
 
 ```{r, echo=FALSE, results='asis'}
 

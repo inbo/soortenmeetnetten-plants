@@ -106,7 +106,7 @@ if (interactive()) {
       theme_set(theme_inbo(base_size = 12))
     },
     latex = {
-      opts_chunk$set(dev = "cairo_pdf", dpi = 300)
+      opts_chunk$set(dev = "cairo_pdf", dpi = 72)
       theme_set(theme_inbo(base_size = 9))
       update_geom_defaults("point", list(size = 1.5))
     },

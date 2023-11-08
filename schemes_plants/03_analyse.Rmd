@@ -21,8 +21,9 @@ Om deze (potentiële) dubbeltellingen te verwijderen gaan we als volgt te werk:
 
 #### Per jaar
 
-In een eerste stap berekenen we de populatiegrootte per meetnetlocatie voor elk jaar (waarin er een telling is gebeurd).
+In een eerste stap schatten we de populatiegrootte per meetnetlocatie voor elk jaar (waarin er een telling is gebeurd).
 Dit doen we door de klassenmiddens van de Floron-klassen te sommeren van alle gemarkeerde groeiplaatsen binnen een bepaald jaar.
+Daarnaast sommeren we ook de minima en de maxima van de Floron-klassen om de minimale en maximale populatiegrootte te schatten.
 
 ```{r}
 
@@ -75,8 +76,8 @@ total_cyclus <- total_year %>%
 
 check_missing_cyclus <- total_cyclus %>%
   filter(!cyclus_1_2) %>%
-  select(meetnet, locatie, protocol, cyclus, jaar, tot_mean, variable) %>%
-  pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "jaar"))
+  select(meetnet, locatie, protocol, cyclus, jaar, tot_mean, tot_min, tot_max, variable) %>%
+  pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "jaar", "tot_min", "tot_max"))
 
 missing_cyclus_1 <- check_missing_cyclus %>%
   filter(is.na(tot_mean_1)) %>%
@@ -84,9 +85,13 @@ missing_cyclus_1 <- check_missing_cyclus %>%
          periode = "2016 - 2018",
          tot_mean = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), tot_mean_0,
                            tot_mean_2),
+         tot_min = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), tot_min_0,
+                           tot_min_2),
+         tot_max = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), tot_max_0,
+                           tot_max_2),
          jaar = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), jaar_0,
                            jaar_2)) %>%
-  select(meetnet, locatie, protocol, cyclus, periode, jaar, tot_mean, variable)
+  select(meetnet, locatie, protocol, cyclus, periode, jaar, tot_mean, tot_min, tot_max, variable)
 
 missing_cyclus_2 <- check_missing_cyclus %>%
   filter(is.na(tot_mean_2)) %>%
@@ -94,10 +99,16 @@ missing_cyclus_2 <- check_missing_cyclus %>%
          periode = "2019 - 2021",
          tot_mean = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), tot_mean_3,
                            tot_mean_1),
+         tot_min = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), tot_min_3,
+                           tot_min_1),
+         tot_max = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), tot_max_3,
+                           tot_max_1),
          jaar = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), jaar_3,
                            jaar_1)) %>%
-  select(meetnet, locatie, protocol, cyclus, periode, jaar,  tot_mean, variable) %>%
+  select(meetnet, locatie, protocol, cyclus, periode, jaar,  tot_mean, tot_min, tot_max, variable) %>%
   mutate(tot_mean = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 0, tot_mean),
+         tot_min = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 0, tot_min),
+         tot_max = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 0, tot_max),
          jaar = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 2021, jaar))
 
 missing_cyclus <- bind_rows(missing_cyclus_1, missing_cyclus_2) %>%
@@ -124,8 +135,6 @@ write_csv2(total_year, "../output/plantenmeetnetnetten_total_year.csv")
 
 #### Bijpassen van ontbrekende tellingen
 
-*Opmerking locatie Rechterscheldeoever Uitbergen-Schoonaarde van meetnet Driekantige bies is op inactief gezet in 2021, met als opmerking 'Hier werden dijkwerken uitgevoerd en werden de planten getransloceerd door INBO'. Nultelling voor periode 2019 - 2021??*
-
 In sommige gevallen werd een meetnetlocatie niet geteld in een van de meetcycli.
 Deze ontbrekende waarden passen we bij op de volgende manier:
 
@@ -135,10 +144,7 @@ Deze ontbrekende waarden passen we bij op de volgende manier:
 -   Voor een ontbrekende waarde uit de periode 2016 - 2018 gebruiken we een telling uit 2015, indien beschikbaar.
     Indien er geen telling is uit 2015 stellen we de populatiegrootte gelijk aan deze van de periode 2019 - 2021.
 
-Een overzicht van de bijpassingen vind je in onderstaande tabel.
-*Niet in eindrapport*
-
-```{r}
+```{r, eval = FALSE}
 missing_cyclus %>%
   select(meetnet, locatie, periode, "jaar telling" = jaar, "populatiegrootte" = tot_mean) %>%
   kable(booktabs = TRUE) %>%
@@ -150,6 +156,7 @@ missing_cyclus %>%
 ### Berekening van de totale populatiegrootte voor Vlaanderen
 
 Per meetcyclus sommeren we de populatiegrootte van alle meetnetlocaties om de totale populatiegrootte te bekomen voor Vlaanderen.
+We sommeren de klassenmiddens van de Floron-klassen om de meest waarschijnlijke populatiegrootte te bekomen, maar ook de minima en maxima van de Floron-klassen om de minimale en maximale populatiegrootte te schatten.
 
 ```{r}
 
