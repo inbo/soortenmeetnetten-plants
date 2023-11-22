@@ -219,6 +219,8 @@ Voor elk meetnet gaan we dieper in op de resultaten aan de hand van vier figuren
 
 ```{r, results = 'asis'}
 
+soort <- "Gesteelde zoutmelde"
+
 for (soort in unique(total_year_long$meetnet)) {
   
   locatie_point_meetnet_aanwezig <- locatie_point_1_2 %>%
@@ -249,6 +251,13 @@ for (soort in unique(total_year_long$meetnet)) {
     labs(size = variable_select$variable) + 
     theme_void()
   
+ ggplot() +
+    geom_sf(data = locatie_point_meetnet, aes(size = tot_mean, shape = voorkomen, colour = voorkomen), alpha = 0.7) +
+    geom_sf(data = vlaanderen, alpha = 0.2, colour = "grey") +
+    facet_wrap(~periode, ncol = 1) +
+    labs(size = variable_select$variable) + 
+    theme_void() +
+    scale_colour_manual(values = c("afwezig" = "black", "aanwezig" = "green"))
   
   p2 <- total_cyclus %>%
     filter(meetnet == soort) %>%

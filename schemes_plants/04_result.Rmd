@@ -48,7 +48,7 @@ cat("\n\n")
 ```{r}
 
 verschil_meetnet <- total_meetnet_cyclus %>%
-  select(-periode, -voorkomen) %>%
+  select(-periode, -voorkomen, -geometric_mean, -n_voorkomen, -occurence) %>%
   pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "tot_min", "tot_max")) %>%
   mutate(mean_1_show = str_c(tot_mean_1, " [", tot_min_1, "-", tot_max_1, "]"),
          mean_2_show = str_c(tot_mean_2, " [", tot_min_2, "-", tot_max_2, "]"),

@@ -24,6 +24,7 @@ author:
       given: Sam
       family: Van de Poel
     email: sam.vandepoel@natuurpunt.be
+    orcid: 0000-0001-6251-3766
     affiliation: Natuurpunt Studie
   - name:
       given: Hans
@@ -38,6 +39,13 @@ reviewer:
     email: marc.pollet@inbo.be
     orcid: 0000-0001-5198-5928
     affiliation: Instituut voor Natuur- en Bosonderzoek (INBO)
+year: 2023
+doi: 10.21436/inbor.99216099
+reportnr: 51
+depotnr: D/2023/3241/392
+cover_photo: image/purperorchis_wouter_van_landuyt.JPG
+cover_description: Purperorchis (&copy; Wouter Van Landuyt)
+embargo: 2023-11-22
 lang: nl
 style: INBO
 floatbarrier: subsubsection
@@ -61,15 +69,31 @@ output:
 
 # Dankwoord {.unnumbered}
 
-De tekst voor het optionele dankwoord.
+We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de plantenmeetnetten.
+Frederic Piesschaert bedanken we voor de technische ondersteuning bij de invoer van de gegevens via meetnetten.be en de bevraging van de meetnetten‐databank.
+We bedanken ook de actieve leden en ex‐leden van de stuurgroep van het project 'Langetermijn monitoring van beleidsrelevante soorten via mee‐netten in Vlaanderen': Bernard Van Elegem, Véronique Verbist, Samuel De Rycke, Koen Van Keer, Hannes Ledegen, Wouter Vanreusel, Marc Herremans, Maurice Hoffmann en Marc Pollet.
+Ten slotte willen we Marc Pollet bedanken voor het kritisch nalezen van dit rapport.
 
 # Samenvatting {.unnumbered}
 
-<!-- description: start -->
+Via de soortenmeetnetten ([meetnetten.be](www.meetnetten.be)) willen het Instituut voor Natuur‐ en Bosonderzoek (INBO) en het Agentschap voor Natuur en Bos (ANB) betrouwbare informatie verzamelen over prioritaire soorten in Vlaanderen.
+Deze groep van prioritaire soorten omvat 28 vaatplanten, waarvan 3 Natura 2000-soorten (Europees prioritaire soorten) en 25 Vlaams prioritaire soorten.
+De Natura 2000-soorten worden geteld door professionals van het INBO.
+Alle Vlaams prioritaire soorten worden door vrijwilligers geteld onder coördinatie van Natuurpunt Studie.
 
-De tekst voor de verplichte samenvatting.
-Hou het [Heerlijk Helder](https://overheid.vlaanderen.be/communicatie/heerlijk-helder).
-<!-- description: end -->
+De tellers passen een vastgelegde methode toe om de populatiegrootte te schatten voor elk meetnetlocatie.
+Daarbij loopt de teller systematisch de meetnetlocatie af in trajecten die ongeveer 5 meter van elkaar liggen.
+De teller legt elk groeiplaats vast met een GPS en schat de abundantie op basis van de FLORON-schaal.
+De meetnetlocaties worden om de drie jaar geteld.
+
+Dit rapport toont de eerste resultaten voor de soorten die door de vrijwilligers geteld worden.
+Als we de totale populatiegroottes voor Vlaanderen vergelijken tussen de periodes 2016-2018 en 2019-2021 zien we:
+
+-   een (sterke) toename voor duingentiaan, harlekijn, polei, koprus, gesteelde zoutmelde, veenmosorchis en purperorchis
+-   een matige toename voor kleine schorseneer, stekende bies, welriekende nachtorchis en witte waterranonkel
+-   een stabiele toestand voor krabbenscheer, ronde zegge en weegbreefonteinkruid
+-   een matige afname voor klimopklokje en moerassmele
+-   een (sterke) afname voor grote bremraap, honingorchis, kleine wolfsklauw, driekantige bies, slank wollegras, spits fonteinkruid, fijn goudscherm en plat fonteinkruid.
 
 ```{r setup, include = FALSE}
 library(knitr)
@@ -126,3 +150,4 @@ source(file.path(functions_path, "src/functions_smp.R"))
 data_path <- "../data"
 
 ```
+

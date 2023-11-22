@@ -4,7 +4,65 @@
 INBOmd::references(appendix = TRUE)
 ```
 
+# Verschillen per meetnetlocatie
+
+```{r}
+verschil_meetnetlocatie <- total_cyclus %>%
+  filter(cyclus %in% c(1,2)) %>%
+  select(meetnet, locatie, variable, cyclus, tot_mean, tot_min, tot_max) %>%
+  pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "tot_min", "tot_max")) %>%
+  mutate(mean_1_show = str_c(tot_mean_1, " [", tot_min_1, "-", tot_max_1, "]"),
+         mean_2_show = str_c(tot_mean_2, " [", tot_min_2, "-", tot_max_2, "]"),
+         verschil_rel = (tot_mean_2 - tot_mean_1) / tot_mean_1,
+         verschil_percent = verschil_rel * 100,
+         verschil_rel_log = log(1 + verschil_rel) + 1,
+         overlap = ifelse(tot_mean_2 > tot_mean_1, pmax(0, tot_max_1 - tot_min_2), pmax(0, tot_max_2 - tot_min_1)),
+         range = pmax(tot_max_1, tot_max_2) - pmin(tot_min_1, tot_min_2),
+         range_prop = ifelse(overlap > 0, round(overlap / range, 2), 0),
+         klasse_1 = ifelse(verschil_rel < -0.25, ifelse(range_prop < 0.10, "--", "-"),
+                         ifelse(verschil_rel < -0.10, "-~",
+                                ifelse(verschil_rel < 0.10 | range_prop  >= 0.75, "~",
+                                      ifelse(verschil_rel < 0.33, "+~", ifelse(range_prop < 0.10, "++", "+"))))),
+         klasse_2 = ifelse(range_prop >= 0.75, "~",
+                         ifelse(range_prop >= 0.50, ifelse(verschil_rel > 0, "+~", "-~"),
+                                ifelse(range_prop >= 0.15, ifelse(verschil_rel > 0, "+", "-"), ifelse(verschil_rel > 0, "++", "--")))),
+         variable = ifelse(variable == "totaal aantal", "aantal", "opp (m²)"))
+```
+
+```{r tabresultaatlocatie}
+
+verschil_meetnetlocatie %>%
+  select(Soort = meetnet, Locatie = locatie, Variabele = variable, "2016 - 2018" = mean_1_show, "2019 - 2021" = mean_2_show) %>%
+  kable(caption = "Totale populatiegrootte per meetnetlocatie en per meetcyclus van de Vlaams prioritaire vaatplanten",
+        booktabs = TRUE,
+        longtable = TRUE) %>%
+  kable_styling(latex_options = c("repeat_header")) %>%
+  column_spec(2, width = "4cm")
+  
+```
+
 # Reproduceerbaarheid van de analyse
 
-*Nog aanvullen*
+De analyses in dit rapport zijn uitgevoerd via R [@R].
+De R-code is onder versiebeheer geplaatst in de Github repository [soortenmeetnetten-plants](https://github.com/inbo/soortenmeetnetten-plants/).
 
+De repository bevat 3 R-scripts met voorbereidende stappen:
+
+-   Het script [import_ruwe_data.Rmd](https://github.com/inbo/soortenmeetnetten-plants/blob/main/source/import_ruwe_data.Rmd) bevat de queries om de meetnetten.be databank te bevragen.
+    De opgevraagde data wordt weggeschreven in de datalagen `aantallen_ruw`, `locaties`, `tracks` van het geopackage `plantenmeetnetten.gpkg`.
+
+-   In het script [selectie_analyseset.Rmd](https://github.com/inbo/soortenmeetnetten-plants/blob/main/source/selectie_analyseset.Rmd) gebeurt een datacontrole en wordt de analyseset geselecteerd.
+    Het resultaat wordt in de datalaag `analyseset` toegevoegd aan het geopackage `plantenmeetnetten.gpkg`.
+
+-   In het script [selectie_analyseset.Rmd](https://github.com/inbo/soortenmeetnetten-plants/blob/main/source/selectie_analyseset.Rmd) gebeurt een datacontrole en wordt de analyseset geselecteerd.
+    Het resultaat wordt in de datalaag `analyseset` toegevoegd aan het geopackage `plantenmeetnetten.gpkg`.
+
+-   In het script [combineer_bezoeken.Rmd](https://github.com/inbo/soortenmeetnetten-plants/blob/main/source/combineer_bezoeken.Rmd) combineren we verschillende tellingen die binnen eenzelfde jaar voor eenzelfde locatie zijn uitgevoerd.
+    Het resultaat is de datalaag 'analyseset_preprocessed' die opnieuw wordt toegevoegd aan `plantenmeetnetten.gpkg`.
+    Deze datalaag wordt gebruikt als input voor dit rapport.
+
+De repository bevat ook de R-scripts voor het eigenlijke resultatenrapport.
+Deze scripts bevinden zicht in [deze folder](https://github.com/inbo/soortenmeetnetten-plants/blob/main/schemes_plants).
+
+De geopackage `plantenmeetnetten.gpkg` wordt niet open beschikbaar gemaakt omdat het gevoelige informatie bevat over bedreigde soorten.
+Het bestand wordt wel bewaard in deze [google drive folder](https://drive.google.com/drive/folders/1KgzwIwvAv_WdiPIOtbzjDUDZRU_DqP50) die enkel intern binnen het INBO raadpleegbaar is.

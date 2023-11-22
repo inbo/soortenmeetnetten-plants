@@ -84,7 +84,7 @@ data_lim <- tibble(data_max = c(max(data_locatie$tot_mean), max(data_meetnet$tot
 
 ```
 
-```{r,fig.cap = "Kaart met totale populatiegrootte van {{i}} per locatie voor de periode 2016-2018 en 2019-2021"}
+```{r,fig.cap = "Kaart met totale populatiegrootte van {{i}} per locatie voor de periode 2016-2018 en 2019-2021. Als een soort niet werd waargenomen, geven we dit weer met een X."}
 
 ggplot() +
     geom_sf(data = locatie_point_meetnet_aanwezig, aes(size = tot_mean), alpha = 0.5, colour = "green",) +

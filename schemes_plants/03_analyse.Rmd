@@ -3,7 +3,7 @@
 ### Selectie analyseset
 
 We exporteren de ruwe data uit de meetnetten.be-databank.
-Vervolgens selecteren we de tellingen die in aangeduid zijn als 'geschikt voor analyse'.
+Vervolgens selecteren we de tellingen die aangeduid zijn als 'geschikt voor analyse'.
 
 ### Preprocessing
 
@@ -52,6 +52,46 @@ total_year <- analyseset_preprocessed %>%
             n_visits = n_distinct(visit_id)) %>%
   ungroup()
 
+
+
+```
+
+```{r check-grotebremraap}
+# wat met nieuwe locaties die enkel in 3de cyclus werden geteld?
+check_grote_bremraap <- total_year %>%
+  group_by(meetnet, locatie) %>%
+  filter(n_distinct(cyclus) == 1) %>%
+  filter(cyclus == 3) %>%
+  ungroup()
+
+total_cyclus_1_2_3 <- total_year %>%
+  filter(meetnet == "Grote bremraap") %>%
+  group_by(meetnet, protocol, locatie, cyclus) %>%
+  filter(tot_mean == max(tot_mean)) %>%
+  filter(jaar == max(jaar)) %>%
+  ungroup() %>%
+  mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
+  group_by(meetnet, locatie) %>%
+  filter( 1 %in% cyclus & 2 %in% cyclus & 3 %in% cyclus) %>%
+  ungroup() %>%
+    group_by(meetnet, cyclus) %>%
+    summarise(tot = sum(tot_mean)) %>%
+    ungroup()
+
+total_cyclus_2_3 <- total_year %>%
+  filter(meetnet == "Grote bremraap") %>%
+  group_by(meetnet, protocol, locatie, cyclus) %>%
+  filter(tot_mean == max(tot_mean)) %>%
+  filter(jaar == max(jaar)) %>%
+  ungroup() %>%
+  mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(2 %in% cyclus & 3 %in% cyclus) %>%
+  ungroup() %>%
+  filter(cyclus >= 2) %>%
+    group_by(meetnet, cyclus) %>%
+    summarise(tot = sum(tot_mean)) %>%
+    ungroup()
 ```
 
 #### Per meetcyclus
@@ -162,10 +202,14 @@ We sommeren de klassenmiddens van de Floron-klassen om de meest waarschijnlijke 
 
 total_meetnet_cyclus <- total_cyclus %>%
   group_by(meetnet, periode, variable, protocol, cyclus) %>%
-  summarise(tot_mean = sum(tot_mean),
+  summarise(geometric_mean = exp(mean(log(ifelse(tot_mean == 0, 0.01, tot_mean)))),
+            n_voorkomen = sum(tot_mean > 0),
+            occurence = sum(tot_mean > 0) / n(),
+            tot_mean = sum(tot_mean),
             tot_max = sum(tot_max),
             tot_min = sum(tot_min)) %>%
   ungroup() %>%
-  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig")) %>%
+  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig"),
+         geometric_mean = round(geometric_mean,4)) %>%
   filter(cyclus %in% c(1,2))
 ```
