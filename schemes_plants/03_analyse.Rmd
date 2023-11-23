@@ -1,0 +1,219 @@
+## Analyse van de telgegevens
+
+### Selectie analyseset
+
+We exporteren de ruwe data uit de meetnetten.be-databank.
+Vervolgens selecteren we de tellingen die aangeduid zijn als 'geschikt voor analyse'.
+
+### Preprocessing
+
+In sommige gevallen zijn er meerdere bezoeken per meetnetlocatie per jaar.
+Het kan dan voorkomen dat een deel van de tellingen overlappen en dat bepaalde groeiplaatsen dubbel geteld worden.
+Hierdoor kunnen we dus een overschatting krijgen van de populatiegrootte in de meetnetlocatie.
+
+Om deze (potentiële) dubbeltellingen te verwijderen gaan we als volgt te werk:
+
+-   we leggen een raster van 10 m x 10 m over de meetnetlocatie;
+-   binnen elke rastercel berekenen we het totaal aantal of de totale oppervlakte per bezoek (op basis van de klassenmiddens van de Floron-klassen);
+-   als er binnen een rastercel observaties zijn van meer dan 1 bezoek, selecteren we de observaties van het bezoek met het hoogste totaal (totaal aantal of totale oppervlakte) binnen die rastercel.
+
+### Berekening van de populatiegrootte per meetnetlocatie
+
+#### Per jaar
+
+In een eerste stap schatten we de populatiegrootte per meetnetlocatie voor elk jaar (waarin er een telling is gebeurd).
+Dit doen we door de klassenmiddens van de Floron-klassen te sommeren van alle gemarkeerde groeiplaatsen binnen een bepaald jaar.
+Daarnaast sommeren we ook de minima en de maxima van de Floron-klassen om de minimale en maximale populatiegrootte te schatten.
+
+```{r}
+
+analyseset_preprocessed <- read_sf("../data/plantenmeetnetten.gpkg", "analyseset_preprocessed")
+
+duur_cyclus <- 3
+start_cyclus <- 2016
+
+analyseset_preprocessed <- analyseset_preprocessed %>%
+  mutate(cyclus = ceiling((jaar - start_cyclus + 1) / duur_cyclus),
+         code = factor(code, levels = c("0", "A", "B", "C", "D", "E", "F", "G"))) %>%
+  group_by(cyclus) %>%
+  mutate(periode = str_c(min(jaar), " - ", max(jaar))) %>%
+  ungroup() %>%
+  group_by(cyclus, meetnet, locatie) %>%
+  mutate(n_jaar_cyclus = n_distinct(jaar)) %>%
+  ungroup()
+ 
+total_year <- analyseset_preprocessed %>%
+  st_drop_geometry() %>%
+  group_by(meetnet, locatie, protocol, cyclus, periode, jaar) %>%
+  summarise(tot_mean = sum(aantal_mean),
+            tot_min = sum(aantal_min),
+            tot_max = sum(aantal_max),
+            n_punten = n_distinct(id),
+            n_visits = n_distinct(visit_id)) %>%
+  ungroup()
+
+
+
+```
+
+```{r check-grotebremraap}
+# wat met nieuwe locaties die enkel in 3de cyclus werden geteld?
+check_grote_bremraap <- total_year %>%
+  group_by(meetnet, locatie) %>%
+  filter(n_distinct(cyclus) == 1) %>%
+  filter(cyclus == 3) %>%
+  ungroup()
+
+total_cyclus_1_2_3 <- total_year %>%
+  filter(meetnet == "Grote bremraap") %>%
+  group_by(meetnet, protocol, locatie, cyclus) %>%
+  filter(tot_mean == max(tot_mean)) %>%
+  filter(jaar == max(jaar)) %>%
+  ungroup() %>%
+  mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
+  group_by(meetnet, locatie) %>%
+  filter( 1 %in% cyclus & 2 %in% cyclus & 3 %in% cyclus) %>%
+  ungroup() %>%
+    group_by(meetnet, cyclus) %>%
+    summarise(tot = sum(tot_mean)) %>%
+    ungroup()
+
+total_cyclus_2_3 <- total_year %>%
+  filter(meetnet == "Grote bremraap") %>%
+  group_by(meetnet, protocol, locatie, cyclus) %>%
+  filter(tot_mean == max(tot_mean)) %>%
+  filter(jaar == max(jaar)) %>%
+  ungroup() %>%
+  mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
+  group_by(meetnet, locatie) %>%
+  filter(2 %in% cyclus & 3 %in% cyclus) %>%
+  ungroup() %>%
+  filter(cyclus >= 2) %>%
+    group_by(meetnet, cyclus) %>%
+    summarise(tot = sum(tot_mean)) %>%
+    ungroup()
+```
+
+#### Per meetcyclus
+
+In een tweede stap berekenen we de populatiegrootte per meetcyclus.
+Twee meetcycli werden al afgewerkt: 2016 - 2018 en 2019 - 2021.
+In de meeste gevallen wordt een meetlocatie maar eenmaal per cyclus geteld.
+
+Voor meetlocaties die in meerdere jaren binnen dezelfde cyclus werden geteld, stellen we de populatiegrootte voor de meetcyclus gelijk aan de maximale populatiegrootte over de verschillende getelde jaren.
+
+```{r}
+total_cyclus <- total_year %>%
+  group_by(meetnet, protocol, locatie, cyclus) %>%
+  filter(tot_mean == max(tot_mean)) %>%
+  filter(jaar == max(jaar)) %>%
+  ungroup() %>%
+  mutate(variable = ifelse(protocol == "Vaatplanten - Oppervlakte", "totaal oppervlakte (m²)", "totaal aantal")) %>%
+  group_by(meetnet, locatie) %>%
+  mutate(cyclus_1_2 = 1 %in% cyclus & 2 %in% cyclus) %>%
+  filter(any(cyclus %in% c(1,2))) %>%
+  ungroup()
+
+check_missing_cyclus <- total_cyclus %>%
+  filter(!cyclus_1_2) %>%
+  select(meetnet, locatie, protocol, cyclus, jaar, tot_mean, tot_min, tot_max, variable) %>%
+  pivot_wider(names_from = "cyclus", values_from = c("tot_mean", "jaar", "tot_min", "tot_max"))
+
+missing_cyclus_1 <- check_missing_cyclus %>%
+  filter(is.na(tot_mean_1)) %>%
+  mutate(cyclus = 1,
+         periode = "2016 - 2018",
+         tot_mean = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), tot_mean_0,
+                           tot_mean_2),
+         tot_min = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), tot_min_0,
+                           tot_min_2),
+         tot_max = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), tot_max_0,
+                           tot_max_2),
+         jaar = ifelse(!is.na(jaar_0) & (jaar_0 == 2015), jaar_0,
+                           jaar_2)) %>%
+  select(meetnet, locatie, protocol, cyclus, periode, jaar, tot_mean, tot_min, tot_max, variable)
+
+missing_cyclus_2 <- check_missing_cyclus %>%
+  filter(is.na(tot_mean_2)) %>%
+  mutate(cyclus = 2,
+         periode = "2019 - 2021",
+         tot_mean = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), tot_mean_3,
+                           tot_mean_1),
+         tot_min = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), tot_min_3,
+                           tot_min_1),
+         tot_max = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), tot_max_3,
+                           tot_max_1),
+         jaar = ifelse(!is.na(jaar_3) & (jaar_3 == 2022), jaar_3,
+                           jaar_1)) %>%
+  select(meetnet, locatie, protocol, cyclus, periode, jaar,  tot_mean, tot_min, tot_max, variable) %>%
+  mutate(tot_mean = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 0, tot_mean),
+         tot_min = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 0, tot_min),
+         tot_max = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 0, tot_max),
+         jaar = ifelse(locatie == "Rechterscheldeoever Uitbergen-Schoonaarde", 2021, jaar))
+
+missing_cyclus <- bind_rows(missing_cyclus_1, missing_cyclus_2) %>%
+  mutate(imputatie = TRUE)
+
+total_cyclus <- total_cyclus %>%
+  mutate(imputatie = FALSE) %>%
+  bind_rows(missing_cyclus) %>%
+  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig"))
+
+analyseset_cyclus <- analyseset_preprocessed %>%
+  semi_join(total_cyclus, by = c("meetnet", "locatie", "jaar")) %>%
+  arrange(jaar) %>%
+  filter(cyclus %in% c(1,2)) %>%
+  mutate(periode = factor(periode))
+
+check_1recordpercyclus <- total_cyclus %>%
+  group_by(meetnet, locatie, cyclus) %>%
+  filter(n() > 1)
+
+write_csv2(total_cyclus, "../output/plantenmeetnetnetten_total_cyclus.csv")
+write_csv2(total_year, "../output/plantenmeetnetnetten_total_year.csv")
+```
+
+#### Bijpassen van ontbrekende tellingen
+
+In sommige gevallen werd een meetnetlocatie niet geteld in een van de meetcycli.
+Deze ontbrekende waarden passen we bij op de volgende manier:
+
+-   Voor een ontbrekende waarde uit de periode 2019 - 2021 gebruiken we een telling uit 2022, indien beschikbaar.
+    Indien er geen telling is uit 2022 stellen we de populatiegrootte gelijk aan deze van de periode 2016 - 2018.
+
+-   Voor een ontbrekende waarde uit de periode 2016 - 2018 gebruiken we een telling uit 2015, indien beschikbaar.
+    Indien er geen telling is uit 2015 stellen we de populatiegrootte gelijk aan deze van de periode 2019 - 2021.
+
+```{r, eval = FALSE}
+missing_cyclus %>%
+  select(meetnet, locatie, periode, "jaar telling" = jaar, "populatiegrootte" = tot_mean) %>%
+  kable(booktabs = TRUE) %>%
+  kable_styling() %>%
+  column_spec(2, width = "14em")
+  
+```
+
+### Berekening van de totale populatiegrootte voor Vlaanderen
+
+Per meetcyclus sommeren we de populatiegrootte van alle meetnetlocaties om de totale populatiegrootte te bekomen voor Vlaanderen.
+We sommeren de klassenmiddens van de Floron-klassen om de meest waarschijnlijke populatiegrootte te bekomen, maar ook de minima en maxima van de Floron-klassen om de minimale en maximale populatiegrootte te schatten.
+
+```{r}
+
+total_meetnet_cyclus <- total_cyclus %>%
+  group_by(meetnet, periode, variable, protocol, cyclus) %>%
+  summarise(geometric_mean = exp(mean(log(ifelse(tot_mean == 0, 0.01, tot_mean)))),
+            n_voorkomen = sum(tot_mean > 0),
+            occurence = sum(tot_mean > 0) / n(),
+            tot_mean = sum(tot_mean),
+            tot_max = sum(tot_max),
+            tot_min = sum(tot_min)) %>%
+  ungroup() %>%
+  mutate(voorkomen = ifelse(tot_mean == 0, "afwezig", "aanwezig"),
+         geometric_mean = round(geometric_mean,4)) %>%
+  filter(cyclus %in% c(1,2))
+```
+
+### Reproduceerbaarheid van de analyse
+
+Zie Bijlage \@ref(bijlage2).
