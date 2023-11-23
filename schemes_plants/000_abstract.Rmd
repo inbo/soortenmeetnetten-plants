@@ -10,7 +10,7 @@ This report shows the first results of the vascular plant monitoring schemes.
 When comparing the total population size in Flanders for the periods 2016-2018 and 2019-2021 we see:
 
 -   a (strong) increase for *Gentianella uliginosa*, *Orchis morio*, *Mentha pulegium*, *Juncus capitatus*, *Halimione pedunculata*, *Hammarbya paludosa*, and *Orchis purpurea*
--   a moderate increase for *Scorzonera humilis*, *Scirpuspungens*, *Platanthera bifolia* and *Ranunculus ololeucos*
+-   a moderate increase for *Scorzonera humilis*, *Scirpus pungens*, *Platanthera bifolia* and *Ranunculus ololeucos*
 -   a stable population size for *Stratiotes aloides*, *Carex diandra* and *Potamogeton coloratus*
 -   a moderate decrease for *Wahlenbergia hederacea* and *Deschampsia setacea*
 -   a (strong) decrease for *Orobanche rapum-genistae*, *Herminium monorchis*, *Herminium monorchis*, *Scirpus triqueter*, *Eriophorum gracile*, *Potamogeton acutifolius*, *Bupleurum tenuissimum* and *Potamogeton compressus*

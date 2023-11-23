@@ -213,3 +213,7 @@ total_meetnet_cyclus <- total_cyclus %>%
          geometric_mean = round(geometric_mean,4)) %>%
   filter(cyclus %in% c(1,2))
 ```
+
+### Reproduceerbaarheid van de analyse
+
+Zie Bijlage \@ref(bijlage2).

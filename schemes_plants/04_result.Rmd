@@ -71,8 +71,10 @@ order_trend <- (verschil_meetnet %>%
   arrange(verschil_rel))$meetnet
 ```
 
-Tabel \@ref(tab:tabresultaat) toont de totale populatiegrootte en de range tussen de minimale en maximale populatiegrootte per meetcyclus voor de Vlaams prioritaire soorten.
+Tabel \@ref(tab:tabresultaat) toont de totale populatiegrootte (gebaseerd op de middens van de Floron-klassen) en de range tussen de minimale en maximale populatiegrootte (gebaseerd op de onder- en bovengrens van de Floron-klassen) per meetcyclus voor de Vlaams prioritaire soorten.
 De tabel toont ook de relatieve verschillen tussen de meetcycli en de mate waarin de range tussen de minimale en maximale populatiegrootte overlappen voor beide meetcycli.
+
+Voor de populatiegroottes per meetnetlocatie verwijzen we naar Bijlage \@ref(bijlage1).
 
 ```{r tabresultaat}
 
@@ -82,8 +84,9 @@ verschil_meetnet %>%
   select(Soort = meetnet, Variabele = variable, "2016 - 2018" = mean_1_show, "2019 - 2021" = mean_2_show, "Relatief verschil" = verschil_show, "Overlap range" = range_prop_show) %>%
   kable(caption = "Totale populatiegrootte van de Vlaams prioritaire vaatplanten per meetcyclus en reltief verschil tussen de meetcycli",
         booktabs = TRUE) %>%
-  kable_styling() %>%
-  column_spec(c(5,6), width = "1cm")
+  kable_styling(latex_options = c("scale_down")) %>%
+  column_spec(6, width = "1cm") %>%
+  column_spec(5, width = "1.5cm")
   
 ```
 

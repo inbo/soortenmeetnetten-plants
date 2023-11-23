@@ -78,7 +78,7 @@ Ten slotte willen we Marc Pollet bedanken voor het kritisch nalezen van dit rapp
 
 Via de soortenmeetnetten ([meetnetten.be](www.meetnetten.be)) willen het Instituut voor Natuur‐ en Bosonderzoek (INBO) en het Agentschap voor Natuur en Bos (ANB) betrouwbare informatie verzamelen over prioritaire soorten in Vlaanderen.
 Deze groep van prioritaire soorten omvat 28 vaatplanten, waarvan 3 Natura 2000-soorten (Europees prioritaire soorten) en 25 Vlaams prioritaire soorten.
-De Natura 2000-soorten worden geteld door professionals van het INBO.
+De Natura 2000-soorten worden geteld door medewerkers van het INBO.
 Alle Vlaams prioritaire soorten worden door vrijwilligers geteld onder coördinatie van Natuurpunt Studie.
 
 De tellers passen een vastgelegde methode toe om de populatiegrootte te schatten voor elk meetnetlocatie.
@@ -100,7 +100,7 @@ library(knitr)
 opts_chunk$set(
   echo = FALSE,
   eval = TRUE,
-  cache = FALSE,
+  cache = TRUE,
   warning = FALSE,
   error = FALSE,
   message = FALSE
@@ -117,6 +117,7 @@ library(kableExtra)
 library(plotly)
 library(leaflet)
 library(gridExtra)
+library(DT)
 
 conflicts_prefer(dplyr::filter())
 
@@ -150,4 +151,3 @@ source(file.path(functions_path, "src/functions_smp.R"))
 data_path <- "../data"
 
 ```
-
