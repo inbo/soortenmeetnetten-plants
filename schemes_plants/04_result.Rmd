@@ -82,7 +82,7 @@ verschil_meetnet %>%
   mutate(verschil_show = str_c( ifelse(verschil_percent > 0, "+", ""), round(verschil_percent), " %"),
          range_prop_show =  str_c(100 * range_prop, " %")) %>%
   select(Soort = meetnet, Variabele = variable, "2016 - 2018" = mean_1_show, "2019 - 2021" = mean_2_show, "Relatief verschil" = verschil_show, "Overlap range" = range_prop_show) %>%
-  kable(caption = "Totale populatiegrootte van de Vlaams prioritaire vaatplanten per meetcyclus en reltief verschil tussen de meetcycli",
+  kable(caption = "Totale populatiegrootte van de Vlaams prioritaire vaatplanten per meetcyclus en relatief verschil tussen de meetcycli",
         booktabs = TRUE) %>%
   kable_styling(latex_options = c("scale_down")) %>%
   column_spec(6, width = "1cm") %>%
