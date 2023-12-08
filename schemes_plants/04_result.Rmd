@@ -19,7 +19,7 @@ data_meetnet <- analyseset_cyclus %>%
   
 sd <- SharedData$new(data_meetnet)
 
-bscols(widths = c(3, 3, 5),
+bscols(widths = c(2, 3, 6),
        filter_checkbox("cyclus", "Meetcyclus", sd, ~periode),
        filter_checkbox("nulwaarneming", "Type waarnemingen", sd, ~nulwaarneming),
        filter_select("meetnet", "Soort", sd, ~meetnet)
