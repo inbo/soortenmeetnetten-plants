@@ -16,4 +16,7 @@ Voor de planning van de tellingen en het invoeren van gegevens werd het webporta
 In dit rapport stellen we de eerste resultaten voor van de verschillende vaatplantenmeetnetten [@van_landuyt_monitoringsprotocol_2019].
 We geven eerst wat achtergrond over het [ontwerp van de soortenmeetnetten] en de [analyse van de telgegevens].
 
-`r ifelse(!html_output, "Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-dagvlinderrapport-2022/) van dit rapport.", "")` *link nog aanpassen*
+```{r , eval = !html_output, results = 'asis'}
+
+cat("Dit rapport bevat enkele interactieve figuren die alleen kunnen bekeken worden op de [website versie](https://inbo.github.io/soortenmeetnetten-plantenrapport-2023/) van dit rapport.")
+```

@@ -2,9 +2,17 @@
 
 ```{r, eval = html_output, results = 'asis'}
 
+vervaagd <- c( "Fijn goudscherm", "Gesteelde zoutmelde", "Harlekijn",
+              "Honingorchis", "Klimopklokje", "Koprus", "Purperorchis", "Ronde zegge", "Veenmosorchis", "Welriekende nachtorchis")
+
 cat("\n\n## Groeiplaatsen per meetcyclus \n")
 
 cat("Onderstaande kaart geeft een overzicht van alle tellingen uitgevoerd in kader van de vaatplantenmeetnetten (na preprocessing). De bijhorende figuur geeft de distributie van de Floroncodes weer voor de twee afgewerkte meetcycli. De filters laten toe om een soort en een meetcyclus te selecteren. Je kan ook kiezen om al dan niet nulwaarnemingen te visualiseren.")
+
+cat(" \n\nVoor een aantal kwetsbare soorten vervagen we de exacte locaties van de groeiplaatsen tot op het niveau van een 5 km x 5 km hok (op basis van het Lambert 72 coördinaten systeem). We plaatsen een punt in het centrum van het 5 km x 5 km hok waar de groeiplaats zich bevindt. Daarbij voegen we nog een willekeurige spreiding van de punten toe rond het centrum van het hok zodat de verschillende punten minder overlappen. De punten worden gespreid over een afstand van -50 meter tot +50 meter ten opzichte van het centrum, zowel voor de x-coördinaten als de y-coördinaten. We tonen ook de hokken waar er een vervaging is toegepast.")
+
+cat("\n\nDe vervaging passen we toe voor volgende soorten: fijn goudscherm, gesteelde zoutmelde, harlekijn, honingorchis, klimopklokje, koprus, purperorchis, ronde zegge, veenmosorchis en welriekende nachtorchis.")
+
 ```
 
 ```{r, eval = html_output}
@@ -15,9 +23,40 @@ radius_show <- tibble(code = c("0","A", "B", "C", "D", "E","F","G"),
 data_meetnet <- analyseset_cyclus %>%
   filter(cyclus %in% c(1, 2)) %>%
   left_join(radius_show, by = "code") %>%
-  mutate(nulwaarneming = ifelse(code == "0", "0", "A-B-C-D-E-F-G")) 
-  
-sd <- SharedData$new(data_meetnet)
+  mutate(nulwaarneming = ifelse(code == "0", "0", "A-B-C-D-E-F-G")) %>%
+  st_transform(31370)
+
+resolutie <- 5000
+vervaagd <- c( "Fijn goudscherm", "Gesteelde zoutmelde", "Harlekijn",
+              "Honingorchis", "Klimopklokje", "Koprus", "Purperorchis", "Ronde zegge", "Veenmosorchis", "Welriekende nachtorchis")
+ 
+data_meetnet_vervaging <- data_meetnet %>%
+  st_drop_geometry() %>%
+  mutate(x = st_coordinates(data_meetnet)[,1],
+         y = st_coordinates(data_meetnet)[,2],
+         x_vervaagd = floor(x / resolutie) * resolutie + resolutie/2,
+         y_vervaagd = floor(y / resolutie) * resolutie + resolutie/2,
+         x_vervaagd_spreiding = x_vervaagd + runif(nrow(data_meetnet), -resolutie/100, resolutie/100),
+         y_vervaagd_spreiding = y_vervaagd + runif(nrow(data_meetnet), -resolutie/100, resolutie/100),
+         x = ifelse(meetnet %in% vervaagd, x_vervaagd_spreiding, x),
+         y = ifelse(meetnet %in% vervaagd, y_vervaagd_spreiding, y))
+
+data_meetnet_grid <- data_meetnet_vervaging %>%
+  filter(meetnet %in% vervaagd) %>%
+  distinct(x_vervaagd, y_vervaagd) %>%
+  mutate(geom = str_c("POLYGON ((", x_vervaagd - resolutie / 2, " ", y_vervaagd - resolutie / 2, 
+                                ",", x_vervaagd + resolutie / 2, " ", y_vervaagd - resolutie / 2,
+                                ",", x_vervaagd + resolutie / 2, " ", y_vervaagd + resolutie / 2,
+                                ",", x_vervaagd - resolutie / 2, " ", y_vervaagd + resolutie / 2,
+                                ",", x_vervaagd - resolutie / 2, " ", y_vervaagd - resolutie / 2, "))")) %>%
+  st_as_sf(wkt = "geom", crs = 31370) %>%
+  st_transform(crs = 4326)
+
+data_meetnet_vervaging <- data_meetnet_vervaging %>%
+  st_as_sf(coords = c("x", "y"), crs = 31370) %>%
+  st_transform(4326)
+
+sd <- SharedData$new(data_meetnet_vervaging)
 
 bscols(widths = c(2, 3, 6),
        filter_checkbox("cyclus", "Meetcyclus", sd, ~periode),
@@ -28,7 +67,7 @@ bscols(widths = c(2, 3, 6),
 bscols(widths = c(6, 6),
   leaflet(sd) %>%
     addTiles() %>%
-    #addPolygons(data = locaties_meetnet, label = ~locatie) %>%
+    addPolygons(data = data_meetnet_grid, fillOpacity = 0, weight = 1) %>%
     addCircleMarkers(color = ~ifelse(cyclus == 1, "#282A72", "#EF972C"),  label = ~str_c(meetnet, " ", code), stroke = FALSE,
                      radius = ~radius, fillOpacity = 0.5),
   plot_ly(sd, x = ~code, color = ~periode, colors = c("#282A72", "#EF972C")) %>%
@@ -130,7 +169,7 @@ tab_class %>%
 
 ```
 
-```{r figresultaat, fig.height = 7, fig.width = 6,  fig.cap = "Relatief verschil in totale populatiegrootte tussen de periodes 2016 - 2018 en 2019 - 2021"}
+```{r figresultaat, fig.height = 7, fig.width = 7,  fig.cap = "Relatief verschil in totale populatiegrootte tussen de periodes 2016 - 2018 en 2019 - 2021"}
 
 c(rev(traffic_palette(7)), "grey65", "grey35", "grey50") %>%
   setNames(
