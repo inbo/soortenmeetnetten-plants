@@ -51,7 +51,7 @@ meetnet_characteristics %>%
   mutate(soort_nl = ifelse(soort_nl == "Bleekgeel blaasjeskruid", str_c(soort_nl, footnote_marker_number(1)), soort_nl)) %>%
   select("Nederlandse naam" = soort_nl, "Wetenschappelijke naam" = soort_wet, Beleidsrelevantie = type_soort, Meetnet  = type_meetnet) %>%
     unique() %>%
-  kable(caption = "Overzicht van de vaatplanten waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS), en met het jaar waarin de monitoring werd opgestart",
+  kable(caption = "Overzicht van de vaatplanten waarvoor een meetnet bestaat met onderscheid tussen Europees prioritaire (EPS) en Vlaams prioritaire soorten (VPS)",
         escape = FALSE,
         booktabs = TRUE,
         align = c("l", "l", "c", "c"),
@@ -98,6 +98,7 @@ floron %>%
 
 Tabel \@ref(tab:tabkarakteristiekentelperiode) toont per meetnet de manier waarop de abundantie wordt geschat, de geschikte telperiode en het aantal locaties.
 Elk meetnet bevat alle gekende locaties waar de soort voorkomt.
+Na de eerste meetcyclus (2016 - 2018), werden nieuwe locaties toegevoegd aan de meetnetten op basis van losse waarnemignen uit www.waarnemingen.be.
 
 ```{r tabkarakteristiekentelperiode}
 

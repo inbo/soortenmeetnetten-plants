@@ -34,16 +34,16 @@ author:
     affiliation: Instituut voor Natuur- en Bosonderzoek (INBO)
 reviewer:
   - name:
-      given: Marc
-      family: Pollet
-    email: marc.pollet@inbo.be
-    orcid: 0000-0001-5198-5928
+      given: Robbe
+      family: Paredis
+    email: robbe.paredis@inbo.be
+    orcid: 0000-0003-2478-9459
     affiliation: Instituut voor Natuur- en Bosonderzoek (INBO)
 year: 2023
 doi: 10.21436/inbor.99216099
 reportnr: 51
 depotnr: D/2023/3241/392
-cover_photo: image/purperorchis_wouter_van_landuyt.JPG
+cover_photo: cover.JPG
 cover_description: Purperorchis (&copy; Wouter Van Landuyt)
 embargo: 2023-11-22
 lang: nl
@@ -100,7 +100,7 @@ library(knitr)
 opts_chunk$set(
   echo = FALSE,
   eval = TRUE,
-  cache = TRUE,
+  cache = FALSE,
   warning = FALSE,
   error = FALSE,
   message = FALSE
