@@ -7,7 +7,7 @@ vervaagd <- c( "Fijn goudscherm", "Gesteelde zoutmelde", "Harlekijn",
 
 cat("\n\n## Groeiplaatsen per meetcyclus \n")
 
-cat("Onderstaande kaart geeft een overzicht van alle tellingen uitgevoerd in kader van de vaatplantenmeetnetten (na preprocessing). De bijhorende figuur geeft de distributie van de Floroncodes weer voor de twee afgewerkte meetcycli. De filters laten toe om een soort en een meetcyclus te selecteren. Je kan ook kiezen om al dan niet nulwaarnemingen te visualiseren.")
+cat("Onderstaande interactieve kaart geeft een overzicht van alle tellingen uitgevoerd in kader van de vaatplantenmeetnetten (na preprocessing). De grafiek rechts van de kaart geeft de distributie van de Floroncodes weer voor de twee afgewerkte meetcycli. De filters laten toe om een soort en een meetcyclus te selecteren. Je kan ook kiezen om al dan niet nulwaarnemingen te visualiseren. Wanneer je met de cursor een bepaald punt op de kaart aanduidt, zie je de soortnaam en de Floron-code van de groeiplaats.")
 
 cat(" \n\nVoor een aantal kwetsbare soorten vervagen we de exacte locaties van de groeiplaatsen tot op het niveau van een 5 km x 5 km hok (op basis van het Lambert 72 coördinaten systeem). We plaatsen een punt in het centrum van het 5 km x 5 km hok waar de groeiplaats zich bevindt. Daarbij voegen we nog een willekeurige spreiding van de punten toe rond het centrum van het hok zodat de verschillende punten minder overlappen. De punten worden gespreid over een afstand van -50 meter tot +50 meter ten opzichte van het centrum, zowel voor de x-coördinaten als de y-coördinaten. We tonen ook de hokken waar er een vervaging is toegepast.")
 
@@ -139,6 +139,10 @@ Belangrijk om op te merken is dat deze range in populatiegrootte niet als een be
 Een betrouwbaarheidsinterval is gebaseerd op de standaardfout bij een schatting op basis van een steekproef.
 De range in populatiegrootte die we hier verkrijgen is het gevolg van het werken met aantalsklassen en oppervlakteklassen.
 
+Bij de meeste andere meetnetten worden relatieve aantallen geteld.
+De analyse van de dagvlindermeetnetten [@westra_2022], libellenmeetnetten [@westra_2021] en Algemene Broedvogelmonitoring Vlaanderen (ABV) [@onkelinx_2023] maakt daarom wel gebruik van betrouwbaarheidsintervallen.
+De classificatie van de veranderingen is gebaseerd op deze betrouwbaarheidsintervallen, zoals beschreven in de vermelde rapporten.
+
 ```{r }
 
 if (html_output) {
@@ -188,7 +192,7 @@ verschil_meetnet %>%
   geom_vline(xintercept = log(1.33) + 1, linetype = 3) +
   geom_point(aes(colour = klasse_1), size = 5) +
   geom_text(size = 3, colour = "white") +
-  labs(x = "Vreschil tussen periode 2019 - 2021 en periode 2016 - 2018", y = "Soort") +
+  labs(x = "Verschil tussen periode 2019 - 2021 en periode 2016 - 2018", y = "Soort") +
   scale_x_continuous(breaks = breaks_log, labels = labels_show) +
   scale_color_manual(values = klasse_color) +
   theme(legend.position = "hide", axis.text.x = element_text(angle = 90))

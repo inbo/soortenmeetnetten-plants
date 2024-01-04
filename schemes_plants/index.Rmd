@@ -72,7 +72,7 @@ output:
 We wensen in de eerste plaats alle vrijwilligers te bedanken voor de vele tellingen die ze hebben uitgevoerd voor de plantenmeetnetten.
 Frederic Piesschaert bedanken we voor de technische ondersteuning bij de invoer van de gegevens via meetnetten.be en de bevraging van de meetnetten‐databank.
 We bedanken ook de actieve leden en ex‐leden van de stuurgroep van het project 'Langetermijn monitoring van beleidsrelevante soorten via mee‐netten in Vlaanderen': Bernard Van Elegem, Véronique Verbist, Samuel De Rycke, Koen Van Keer, Hannes Ledegen, Wouter Vanreusel, Marc Herremans, Maurice Hoffmann en Marc Pollet.
-Ten slotte willen we Marc Pollet bedanken voor het kritisch nalezen van dit rapport.
+Ten slotte willen we Robbe Paredis en Marc Pollet bedanken voor het kritisch nalezen van dit rapport.
 
 # Samenvatting {.unnumbered}
 

@@ -60,7 +60,7 @@ analyseset_cyclus %>%
     filter(cyclus %in% c(1, 2)) %>%
     ggplot(aes(x = code, fill = periode)) +
     geom_bar(position = "dodge", ) +
-    labs(x = str_c("Floron code - ", variable_select2), y = "Aantal punten") +
+    labs(x = str_c("Floron code - ", variable_select2), y = "Aantal vegetatievlekken") +
     scale_x_discrete(drop = FALSE) +
     scale_fill_discrete(drop = FALSE)
 ```
